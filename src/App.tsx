@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { downloadBlob, makeOutputFilename } from "./lib/files";
-import { drawPreview, loadImageFromFile, loadImageFromUrl, renderBrandedBlob } from "./lib/image";
+import { drawPreview, loadImageFromFile, loadImageFromUrl, renderComposedBlob } from "./lib/image";
 import {
-  DEFAULT_SETTINGS,
-  type OverlayPosition,
-  type OverlaySettings,
-} from "./lib/overlay";
+  DEFAULT_COMPOSER_SETTINGS,
+  THEME_PRESETS,
+  applyLayoutPreset,
+  mergeComposerSettings,
+  type ComposerSettings,
+  type ImageOverlayStyle,
+  type LayoutPresetId,
+  type TextPosition,
+  type ThemePresetId,
+} from "./lib/composer";
+import type { OverlayPosition } from "./lib/overlay";
 
 type ImageItem = {
   id: string;
@@ -17,22 +24,50 @@ type ImageItem = {
 };
 
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const STORAGE_KEY = "phue-wa-image-tool-settings-v1";
+const STORAGE_KEY = "phue-wa-image-tool-settings-v2";
+const LEGACY_STORAGE_KEY = "phue-wa-image-tool-settings-v1";
 
-function loadStoredSettings(): OverlaySettings {
+const LAYOUT_OPTIONS: Array<{ id: LayoutPresetId; label: string; caption: string }> = [
+  { id: "editorial-bottom", label: "Editorial Bottom", caption: "ข้อความล่าง · fade จากล่าง" },
+  { id: "editorial-top", label: "Editorial Top", caption: "ข้อความบน · fade จากบน" },
+  { id: "center-focus", label: "Center Focus", caption: "ข้อความกลาง · tint ทั้งภาพ" },
+];
+
+const OVERLAY_OPTIONS: Array<{ id: ImageOverlayStyle; label: string }> = [
+  { id: "none", label: "ไม่ใช้" },
+  { id: "bottom-fade", label: "Fade ล่าง" },
+  { id: "top-fade", label: "Fade บน" },
+  { id: "full-tint", label: "Tint ทั้งภาพ" },
+];
+
+const TEXT_POSITION_OPTIONS: Array<{ id: TextPosition; label: string }> = [
+  { id: "top-left", label: "บนซ้าย" },
+  { id: "bottom-left", label: "ล่างซ้าย" },
+  { id: "center", label: "กลาง" },
+];
+
+function loadStoredSettings(): ComposerSettings {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } as OverlaySettings;
+    const current = localStorage.getItem(STORAGE_KEY);
+    if (current) return mergeComposerSettings(JSON.parse(current) as Partial<ComposerSettings>);
+
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) {
+      return mergeComposerSettings({
+        logo: JSON.parse(legacy),
+      });
+    }
   } catch {
-    return DEFAULT_SETTINGS;
+    // Fall back to defaults if a previous browser value is invalid.
   }
+
+  return mergeComposerSettings(DEFAULT_COMPOSER_SETTINGS);
 }
 
 export default function App() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [settings, setSettings] = useState<OverlaySettings>(loadStoredSettings);
+  const [settings, setSettings] = useState<ComposerSettings>(loadStoredSettings);
   const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
   const [logoLabel, setLogoLabel] = useState("กำลังตรวจหา logo.png…");
   const [isDragging, setIsDragging] = useState(false);
@@ -60,9 +95,7 @@ export default function App() {
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setLogoLabel("ยังไม่มีโลโก้ default — เลือกไฟล์ PNG");
-        }
+        if (!cancelled) setLogoLabel("ยังไม่มีโลโก้ default — เลือกไฟล์ PNG");
       });
 
     return () => {
@@ -122,8 +155,53 @@ export default function App() {
     });
   }
 
-  function updateSetting<K extends keyof OverlaySettings>(key: K, value: OverlaySettings[K]) {
-    setSettings((current) => ({ ...current, [key]: value }));
+  function updateText<K extends keyof ComposerSettings["text"]>(
+    key: K,
+    value: ComposerSettings["text"][K],
+  ) {
+    setSettings((current) => ({
+      ...current,
+      text: { ...current.text, [key]: value },
+    }));
+  }
+
+  function updateOverlay<K extends keyof ComposerSettings["overlay"]>(
+    key: K,
+    value: ComposerSettings["overlay"][K],
+  ) {
+    setSettings((current) => ({
+      ...current,
+      overlay: { ...current.overlay, [key]: value },
+    }));
+  }
+
+  function updateLogo<K extends keyof ComposerSettings["logo"]>(
+    key: K,
+    value: ComposerSettings["logo"][K],
+  ) {
+    setSettings((current) => ({
+      ...current,
+      logo: { ...current.logo, [key]: value },
+    }));
+  }
+
+  function selectLayout(preset: LayoutPresetId) {
+    setSettings((current) => applyLayoutPreset(current, preset));
+  }
+
+  function selectTheme(themePreset: ThemePresetId) {
+    setSettings((current) => ({ ...current, themePreset }));
+  }
+
+  function resetDesign() {
+    setSettings((current) => ({
+      ...mergeComposerSettings(DEFAULT_COMPOSER_SETTINGS),
+      text: {
+        ...DEFAULT_COMPOSER_SETTINGS.text,
+        headline: current.text.headline,
+        subtext: current.text.subtext,
+      },
+    }));
   }
 
   async function chooseLogo(file?: File) {
@@ -138,10 +216,9 @@ export default function App() {
   }
 
   async function exportOne(item: ImageItem) {
-    if (!logoImage) return;
     setExportStatus("กำลังเตรียมไฟล์…");
     try {
-      const result = await renderBrandedBlob(item.file, logoImage, settings);
+      const result = await renderComposedBlob(item.file, logoImage, settings);
       downloadBlob(result.blob, makeOutputFilename(item.file.name, result.mime));
       setExportStatus(`Export แล้ว · ${result.width} × ${result.height} px`);
     } catch (error) {
@@ -150,20 +227,20 @@ export default function App() {
   }
 
   async function exportAll() {
-    if (!logoImage || !images.length) return;
+    if (!images.length) return;
     const zip = new JSZip();
 
     try {
       for (let i = 0; i < images.length; i += 1) {
         const item = images[i];
         setExportStatus(`กำลัง export ${i + 1}/${images.length}…`);
-        const result = await renderBrandedBlob(item.file, logoImage, settings);
+        const result = await renderComposedBlob(item.file, logoImage, settings);
         zip.file(makeOutputFilename(item.file.name, result.mime), result.blob);
       }
 
       setExportStatus("กำลังสร้าง ZIP…");
       const blob = await zip.generateAsync({ type: "blob" });
-      downloadBlob(blob, "phue-wa-interest-branded-images.zip");
+      downloadBlob(blob, "phue-wa-interest-post-images.zip");
       setExportStatus(`พร้อมใช้ · ${images.length} รูป`);
     } catch (error) {
       setExportStatus(error instanceof Error ? error.message : "Export ไม่สำเร็จ");
@@ -182,8 +259,8 @@ export default function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">เผื่อว่าน่าสนใจ</p>
-          <h1>Image Prep</h1>
-          <p className="subtitle">แปะโลโก้ให้รูปก่อนโพสต์ โดยรูปไม่ถูกอัปโหลดออกจากเครื่อง</p>
+          <h1>Post Composer</h1>
+          <p className="subtitle">ใส่ภาพ · ทำ fade · วางข้อความ · แปะโลโก้ · export พร้อมโพสต์</p>
         </div>
         <span className="privacy-pill">ทำงานใน browser เท่านั้น</span>
       </header>
@@ -226,7 +303,7 @@ export default function App() {
                   void addFiles(event.dataTransfer.files);
                 }}
               >
-                <canvas ref={canvasRef} aria-label="Preview รูปพร้อมโลโก้" />
+                <canvas ref={canvasRef} aria-label="Preview ภาพโพสต์พร้อมข้อความและโลโก้" />
               </div>
 
               <div className="image-strip-header">
@@ -277,15 +354,199 @@ export default function App() {
         </section>
 
         <aside className="controls-panel">
+          <section className="control-card">
+            <ControlHeading step="01" title="Layout" />
+            <div className="layout-grid">
+              {LAYOUT_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  className={settings.layoutPreset === option.id ? "preset-button active" : "preset-button"}
+                  onClick={() => selectLayout(option.id)}
+                >
+                  <strong>{option.label}</strong>
+                  <span>{option.caption}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="control-card">
+            <ControlHeading step="02" title="ข้อความ" />
+            <label className="field-control">
+              <span>Headline</span>
+              <textarea
+                rows={3}
+                maxLength={180}
+                placeholder="เช่น ถ้ารื้อทางด่วนกลางเมืองออก จะเกิดอะไรขึ้น?"
+                value={settings.text.headline}
+                onChange={(event) => updateText("headline", event.target.value)}
+              />
+              <small>{settings.text.headline.length}/180</small>
+            </label>
+
+            <label className="field-control">
+              <span>Subtext</span>
+              <textarea
+                rows={2}
+                maxLength={240}
+                placeholder="ข้อความรองสั้น ๆ (ถ้ามี)"
+                value={settings.text.subtext}
+                onChange={(event) => updateText("subtext", event.target.value)}
+              />
+            </label>
+
+            <div className="segmented-grid three">
+              {TEXT_POSITION_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  className={settings.text.position === option.id ? "active" : ""}
+                  onClick={() => {
+                    updateText("position", option.id);
+                    updateText("align", option.id === "center" ? "center" : "left");
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="compact-sliders">
+              <RangeControl
+                label="ขนาดหัวเรื่อง"
+                value={settings.text.headlineSizePct}
+                min={3.5}
+                max={9}
+                step={0.1}
+                suffix="%"
+                onChange={(value) => updateText("headlineSizePct", value)}
+              />
+              <RangeControl
+                label="ความกว้างข้อความ"
+                value={settings.text.widthPct}
+                min={42}
+                max={90}
+                step={1}
+                suffix="%"
+                onChange={(value) => updateText("widthPct", value)}
+              />
+              <RangeControl
+                label="ระยะจากขอบ"
+                value={settings.text.paddingPct}
+                min={2}
+                max={10}
+                step={0.25}
+                suffix="%"
+                onChange={(value) => updateText("paddingPct", value)}
+              />
+            </div>
+          </section>
+
+          <section className="control-card">
+            <ControlHeading step="03" title="Mood & Fade" />
+            <p className="section-label">โทนสี</p>
+            <div className="theme-grid">
+              {(Object.entries(THEME_PRESETS) as Array<[ThemePresetId, (typeof THEME_PRESETS)[ThemePresetId]]>).map(
+                ([id, theme]) => (
+                  <button
+                    key={id}
+                    className={settings.themePreset === id ? "theme-button active" : "theme-button"}
+                    onClick={() => selectTheme(id)}
+                  >
+                    <span className="theme-swatches" aria-hidden="true">
+                      <i style={{ background: theme.headlineColor }} />
+                      <i style={{ background: theme.accentColor }} />
+                      <i style={{ background: theme.overlayColor }} />
+                    </span>
+                    <strong>{theme.label}</strong>
+                  </button>
+                ),
+              )}
+            </div>
+
+            <p className="section-label">Overlay</p>
+            <div className="segmented-grid two">
+              {OVERLAY_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  className={settings.overlay.style === option.id ? "active" : ""}
+                  onClick={() => updateOverlay("style", option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <RangeControl
+              label="ความเข้ม"
+              value={settings.overlay.opacity}
+              min={0}
+              max={90}
+              step={1}
+              suffix="%"
+              disabled={settings.overlay.style === "none"}
+              onChange={(value) => updateOverlay("opacity", value)}
+            />
+          </section>
+
           <section className="control-card logo-card">
             <div className="control-heading">
               <div>
-                <span className="step-number">01</span>
+                <span className="step-number">04</span>
                 <h2>โลโก้</h2>
               </div>
               <span className={logoImage ? "status-dot ready" : "status-dot"} />
             </div>
+
             <p className="logo-label">{logoLabel}</p>
+
+            <div className="position-grid">
+              {([
+                ["top-left", "↖"],
+                ["top-right", "↗"],
+                ["bottom-left", "↙"],
+                ["bottom-right", "↘"],
+              ] as [OverlayPosition, string][]).map(([position, icon]) => (
+                <button
+                  key={position}
+                  className={settings.logo.position === position ? "active" : ""}
+                  onClick={() => updateLogo("position", position)}
+                  aria-label={position}
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
+
+            <div className="compact-sliders">
+              <RangeControl
+                label="ขนาดโลโก้"
+                value={settings.logo.sizePct}
+                min={4}
+                max={24}
+                step={0.5}
+                suffix="%"
+                onChange={(value) => updateLogo("sizePct", value)}
+              />
+              <RangeControl
+                label="ระยะจากขอบ"
+                value={settings.logo.marginPct}
+                min={0}
+                max={8}
+                step={0.25}
+                suffix="%"
+                onChange={(value) => updateLogo("marginPct", value)}
+              />
+              <RangeControl
+                label="Opacity"
+                value={settings.logo.opacity}
+                min={10}
+                max={100}
+                step={1}
+                suffix="%"
+                onChange={(value) => updateLogo("opacity", value)}
+              />
+            </div>
+
             <button className="secondary-button full" onClick={() => logoInputRef.current?.click()}>
               เลือกโลโก้อื่น
             </button>
@@ -301,81 +562,24 @@ export default function App() {
             />
           </section>
 
-          <section className="control-card">
-            <div className="control-heading">
-              <div>
-                <span className="step-number">02</span>
-                <h2>ตำแหน่ง</h2>
-              </div>
-            </div>
-            <div className="position-grid">
-              {([
-                ["top-left", "↖"],
-                ["top-right", "↗"],
-                ["bottom-left", "↙"],
-                ["bottom-right", "↘"],
-              ] as [OverlayPosition, string][]).map(([position, icon]) => (
-                <button
-                  key={position}
-                  className={settings.position === position ? "active" : ""}
-                  onClick={() => updateSetting("position", position)}
-                  aria-label={position}
-                >
-                  {icon}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="control-card sliders">
-            <RangeControl
-              label="ขนาดโลโก้"
-              value={settings.sizePct}
-              min={4}
-              max={30}
-              step={0.5}
-              suffix="%"
-              onChange={(value) => updateSetting("sizePct", value)}
-            />
-            <RangeControl
-              label="ระยะจากขอบ"
-              value={settings.marginPct}
-              min={0}
-              max={8}
-              step={0.25}
-              suffix="%"
-              onChange={(value) => updateSetting("marginPct", value)}
-            />
-            <RangeControl
-              label="Opacity"
-              value={settings.opacity}
-              min={10}
-              max={100}
-              step={1}
-              suffix="%"
-              onChange={(value) => updateSetting("opacity", value)}
-            />
-            <button className="text-button" onClick={() => setSettings(DEFAULT_SETTINGS)}>
-              คืนค่าเริ่มต้น
-            </button>
-          </section>
+          <button className="reset-button" onClick={resetDesign}>คืนค่าดีไซน์เริ่มต้น</button>
 
           <section className="export-card">
             <div>
-              <span className="step-number inverse">03</span>
+              <span className="step-number inverse">05</span>
               <h2>Export</h2>
             </div>
-            <p>คง pixel dimensions ของต้นฉบับ และใช้ค่าชุดเดียวกับทุกภาพ</p>
+            <p>ใช้ดีไซน์ชุดเดียวกับทุกภาพ และคง pixel dimensions ของต้นฉบับ</p>
             <button
               className="primary-button"
-              disabled={!selected || !logoImage || Boolean(exportStatus.startsWith("กำลัง"))}
+              disabled={!selected || Boolean(exportStatus.startsWith("กำลัง"))}
               onClick={() => selected && void exportOne(selected)}
             >
               Export รูปนี้
             </button>
             <button
               className="primary-button subtle"
-              disabled={!images.length || !logoImage || Boolean(exportStatus.startsWith("กำลัง"))}
+              disabled={!images.length || Boolean(exportStatus.startsWith("กำลัง"))}
               onClick={() => void exportAll()}
             >
               Export ทั้งหมดเป็น ZIP
@@ -388,8 +592,20 @@ export default function App() {
       <footer>
         <span>Original pixel dimensions preserved</span>
         <span>JPEG / WebP export ที่ quality 95%</span>
+        <span>ข้อความและ gradient ถูก render ลงไฟล์จริง</span>
         <span>Metadata/EXIF อาจไม่ถูกเก็บไว้</span>
       </footer>
+    </div>
+  );
+}
+
+function ControlHeading({ step, title }: { step: string; title: string }) {
+  return (
+    <div className="control-heading">
+      <div>
+        <span className="step-number">{step}</span>
+        <h2>{title}</h2>
+      </div>
     </div>
   );
 }
@@ -401,12 +617,22 @@ type RangeControlProps = {
   max: number;
   step: number;
   suffix: string;
+  disabled?: boolean;
   onChange: (value: number) => void;
 };
 
-function RangeControl({ label, value, min, max, step, suffix, onChange }: RangeControlProps) {
+function RangeControl({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  disabled = false,
+  onChange,
+}: RangeControlProps) {
   return (
-    <label className="range-control">
+    <label className={disabled ? "range-control is-disabled" : "range-control"}>
       <span>
         <strong>{label}</strong>
         <output>{value}{suffix}</output>
@@ -417,6 +643,7 @@ function RangeControl({ label, value, min, max, step, suffix, onChange }: RangeC
         max={max}
         step={step}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
       />
     </label>
