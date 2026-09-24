@@ -7,6 +7,7 @@ import {
   applyLayoutPreset,
   computeTextBox,
   migrateV2ComposerSettings,
+  resetComposerSection,
 } from "./composer";
 
 describe("v0.2.1 defaults", () => {
@@ -88,6 +89,75 @@ describe("layout presets", () => {
 
     expect(applyLayoutPreset(current, "editorial-top").overlay.opacity).toBe(63);
     expect(applyLayoutPreset(current, "center-focus").overlay.opacity).toBe(63);
+  });
+});
+
+
+describe("section resets", () => {
+  const customized = {
+    ...DEFAULT_COMPOSER_SETTINGS,
+    layoutPreset: "editorial-top" as const,
+    themePreset: "warm-clay" as const,
+    overlay: { style: "full-tint" as const, opacity: 41 },
+    text: {
+      ...DEFAULT_COMPOSER_SETTINGS.text,
+      headline: "หัวเรื่องที่กำลังเขียน",
+      subtext: "ข้อความรอง",
+      position: "center" as const,
+      align: "center" as const,
+      widthPct: 82,
+      paddingPct: 8,
+      headlineSizePct: 7.2,
+      subtextSizePct: 3.1,
+      fontPreset: "prompt" as const,
+    },
+    logo: {
+      ...DEFAULT_COMPOSER_SETTINGS.logo,
+      position: "top-left" as const,
+      sizePct: 17,
+      marginPct: 5,
+      opacity: 55,
+    },
+  };
+
+  it("resets layout by reapplying the default layout without erasing copy or custom opacity", () => {
+    const reset = resetComposerSection(customized, "layout");
+
+    expect(reset.layoutPreset).toBe("editorial-bottom");
+    expect(reset.overlay.style).toBe("bottom-fade");
+    expect(reset.overlay.opacity).toBe(41);
+    expect(reset.text.position).toBe("bottom-left");
+    expect(reset.text.headline).toBe("หัวเรื่องที่กำลังเขียน");
+    expect(reset.text.fontPreset).toBe("prompt");
+    expect(reset.logo.position).toBe("bottom-right");
+    expect(reset.logo.sizePct).toBe(17);
+  });
+
+  it("resets only text settings to their defaults", () => {
+    const reset = resetComposerSection(customized, "text");
+
+    expect(reset.text).toEqual(DEFAULT_COMPOSER_SETTINGS.text);
+    expect(reset.themePreset).toBe("warm-clay");
+    expect(reset.overlay).toEqual(customized.overlay);
+    expect(reset.logo).toEqual(customized.logo);
+  });
+
+  it("resets only mood and fade to their defaults", () => {
+    const reset = resetComposerSection(customized, "mood");
+
+    expect(reset.themePreset).toBe(DEFAULT_COMPOSER_SETTINGS.themePreset);
+    expect(reset.overlay).toEqual(DEFAULT_COMPOSER_SETTINGS.overlay);
+    expect(reset.text).toEqual(customized.text);
+    expect(reset.logo).toEqual(customized.logo);
+  });
+
+  it("resets only logo geometry and opacity", () => {
+    const reset = resetComposerSection(customized, "logo");
+
+    expect(reset.logo).toEqual(DEFAULT_COMPOSER_SETTINGS.logo);
+    expect(reset.text).toEqual(customized.text);
+    expect(reset.overlay).toEqual(customized.overlay);
+    expect(reset.themePreset).toBe("warm-clay");
   });
 });
 
