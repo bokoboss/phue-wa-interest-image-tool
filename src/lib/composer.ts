@@ -5,6 +5,7 @@ export type TextPosition = "top-left" | "bottom-left" | "center";
 export type TextAlign = "left" | "center";
 export type ThemePresetId = "earth-cream" | "sage-clay" | "warm-clay";
 export type LayoutPresetId = "editorial-bottom" | "editorial-top" | "center-focus";
+export type FontPresetId = "kanit" | "prompt" | "ibm-plex-sans-thai" | "sarabun";
 
 export interface ImageOverlaySettings {
   style: ImageOverlayStyle;
@@ -20,6 +21,7 @@ export interface TextSettings {
   paddingPct: number;
   headlineSizePct: number;
   subtextSizePct: number;
+  fontPreset: FontPresetId;
 }
 
 export interface ComposerSettings {
@@ -38,6 +40,12 @@ export interface ThemePreset {
   overlayColor: string;
 }
 
+export interface FontPreset {
+  label: string;
+  googleFamily: string;
+  canvasStack: string;
+}
+
 export interface TextBox {
   x: number;
   y: number;
@@ -45,6 +53,34 @@ export interface TextBox {
   align: TextAlign;
   verticalDirection: "down" | "up" | "center";
 }
+
+export const OVERLAY_OPACITY_RANGE = {
+  min: 0,
+  max: 100,
+} as const;
+
+export const FONT_PRESETS: Record<FontPresetId, FontPreset> = {
+  kanit: {
+    label: "Kanit",
+    googleFamily: "Kanit",
+    canvasStack: '"Kanit", "Leelawadee UI", Tahoma, sans-serif',
+  },
+  prompt: {
+    label: "Prompt",
+    googleFamily: "Prompt",
+    canvasStack: '"Prompt", "Leelawadee UI", Tahoma, sans-serif',
+  },
+  "ibm-plex-sans-thai": {
+    label: "IBM Plex Sans Thai",
+    googleFamily: "IBM Plex Sans Thai",
+    canvasStack: '"IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif',
+  },
+  sarabun: {
+    label: "Sarabun",
+    googleFamily: "Sarabun",
+    canvasStack: '"Sarabun", "Leelawadee UI", Tahoma, sans-serif',
+  },
+};
 
 export const THEME_PRESETS: Record<ThemePresetId, ThemePreset> = {
   "earth-cream": {
@@ -75,7 +111,7 @@ export const DEFAULT_COMPOSER_SETTINGS: ComposerSettings = {
   themePreset: "earth-cream",
   overlay: {
     style: "bottom-fade",
-    opacity: 72,
+    opacity: 90,
   },
   text: {
     headline: "",
@@ -86,6 +122,7 @@ export const DEFAULT_COMPOSER_SETTINGS: ComposerSettings = {
     paddingPct: 5,
     headlineSizePct: 5.6,
     subtextSizePct: 2.25,
+    fontPreset: "kanit",
   },
   logo: {
     ...DEFAULT_SETTINGS,
@@ -99,6 +136,15 @@ export const DEFAULT_COMPOSER_SETTINGS: ComposerSettings = {
 export function mergeComposerSettings(
   input?: Partial<ComposerSettings>,
 ): ComposerSettings {
+  const text = {
+    ...DEFAULT_COMPOSER_SETTINGS.text,
+    ...input?.text,
+  };
+
+  if (!text.fontPreset || !(text.fontPreset in FONT_PRESETS)) {
+    text.fontPreset = "kanit";
+  }
+
   return {
     ...DEFAULT_COMPOSER_SETTINGS,
     ...input,
@@ -106,15 +152,30 @@ export function mergeComposerSettings(
       ...DEFAULT_COMPOSER_SETTINGS.overlay,
       ...input?.overlay,
     },
-    text: {
-      ...DEFAULT_COMPOSER_SETTINGS.text,
-      ...input?.text,
-    },
+    text,
     logo: {
       ...DEFAULT_COMPOSER_SETTINGS.logo,
       ...input?.logo,
     },
   };
+}
+
+export function migrateV2ComposerSettings(
+  input: Partial<ComposerSettings>,
+): ComposerSettings {
+  const migrated = mergeComposerSettings(input);
+  const oldPresetOpacity: Record<LayoutPresetId, number> = {
+    "editorial-bottom": 72,
+    "editorial-top": 68,
+    "center-focus": 52,
+  };
+
+  const preset = input.layoutPreset ?? "editorial-bottom";
+  if (input.overlay?.opacity === oldPresetOpacity[preset]) {
+    migrated.overlay.opacity = DEFAULT_COMPOSER_SETTINGS.overlay.opacity;
+  }
+
+  return migrated;
 }
 
 export function applyLayoutPreset(
@@ -127,7 +188,7 @@ export function applyLayoutPreset(
     return {
       ...current,
       layoutPreset: preset,
-      overlay: { ...current.overlay, style: "top-fade", opacity: 68 },
+      overlay: { ...current.overlay, style: "top-fade" },
       text: {
         ...current.text,
         position: "top-left",
@@ -142,7 +203,7 @@ export function applyLayoutPreset(
     return {
       ...current,
       layoutPreset: preset,
-      overlay: { ...current.overlay, style: "full-tint", opacity: 52 },
+      overlay: { ...current.overlay, style: "full-tint" },
       text: {
         ...current.text,
         position: "center",
@@ -156,7 +217,7 @@ export function applyLayoutPreset(
   return {
     ...current,
     layoutPreset: "editorial-bottom",
-    overlay: { ...current.overlay, style: "bottom-fade", opacity: 72 },
+    overlay: { ...current.overlay, style: "bottom-fade" },
     text: {
       ...current.text,
       position: "bottom-left",

@@ -1,10 +1,57 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_COMPOSER_SETTINGS,
+  FONT_PRESETS,
+  OVERLAY_OPACITY_RANGE,
   THEME_PRESETS,
   applyLayoutPreset,
   computeTextBox,
+  migrateV2ComposerSettings,
 } from "./composer";
+
+describe("v0.2.1 defaults", () => {
+  it("starts overlay opacity at 90 percent and allows a fully opaque 100 percent", () => {
+    expect(DEFAULT_COMPOSER_SETTINGS.overlay.opacity).toBe(90);
+    expect(OVERLAY_OPACITY_RANGE).toEqual({ min: 0, max: 100 });
+  });
+
+  it("starts with the loopless Kanit font preset", () => {
+    expect(DEFAULT_COMPOSER_SETTINGS.text.fontPreset).toBe("kanit");
+    expect(FONT_PRESETS.kanit.label).toBe("Kanit");
+    expect(FONT_PRESETS.kanit.googleFamily).toBe("Kanit");
+  });
+
+  it("offers multiple Thai font presets", () => {
+    expect(Object.keys(FONT_PRESETS)).toEqual([
+      "kanit",
+      "prompt",
+      "ibm-plex-sans-thai",
+      "sarabun",
+    ]);
+  });
+});
+
+describe("v0.2 storage migration", () => {
+  it("upgrades the old 72 percent default to the new 90 percent default", () => {
+    const migrated = migrateV2ComposerSettings({
+      ...DEFAULT_COMPOSER_SETTINGS,
+      overlay: { style: "bottom-fade", opacity: 72 },
+      text: { ...DEFAULT_COMPOSER_SETTINGS.text, fontPreset: undefined as never },
+    });
+
+    expect(migrated.overlay.opacity).toBe(90);
+    expect(migrated.text.fontPreset).toBe("kanit");
+  });
+
+  it("preserves a user-customized v0.2 overlay opacity", () => {
+    const migrated = migrateV2ComposerSettings({
+      ...DEFAULT_COMPOSER_SETTINGS,
+      overlay: { style: "bottom-fade", opacity: 58 },
+    });
+
+    expect(migrated.overlay.opacity).toBe(58);
+  });
+});
 
 describe("layout presets", () => {
   it("uses a bottom fade, bottom-left copy and bottom-right logo for editorial bottom", () => {
@@ -31,6 +78,16 @@ describe("layout presets", () => {
     expect(next.overlay.style).toBe("full-tint");
     expect(next.text.position).toBe("center");
     expect(next.text.align).toBe("center");
+  });
+
+  it("preserves the user's overlay opacity when switching layout", () => {
+    const current = {
+      ...DEFAULT_COMPOSER_SETTINGS,
+      overlay: { ...DEFAULT_COMPOSER_SETTINGS.overlay, opacity: 63 },
+    };
+
+    expect(applyLayoutPreset(current, "editorial-top").overlay.opacity).toBe(63);
+    expect(applyLayoutPreset(current, "center-focus").overlay.opacity).toBe(63);
   });
 });
 

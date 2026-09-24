@@ -4,10 +4,14 @@ import { downloadBlob, makeOutputFilename } from "./lib/files";
 import { drawPreview, loadImageFromFile, loadImageFromUrl, renderComposedBlob } from "./lib/image";
 import {
   DEFAULT_COMPOSER_SETTINGS,
+  FONT_PRESETS,
+  OVERLAY_OPACITY_RANGE,
   THEME_PRESETS,
   applyLayoutPreset,
   mergeComposerSettings,
+  migrateV2ComposerSettings,
   type ComposerSettings,
+  type FontPresetId,
   type ImageOverlayStyle,
   type LayoutPresetId,
   type TextPosition,
@@ -24,7 +28,8 @@ type ImageItem = {
 };
 
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const STORAGE_KEY = "phue-wa-image-tool-settings-v2";
+const STORAGE_KEY = "phue-wa-image-tool-settings-v3";
+const V2_STORAGE_KEY = "phue-wa-image-tool-settings-v2";
 const LEGACY_STORAGE_KEY = "phue-wa-image-tool-settings-v1";
 
 const LAYOUT_OPTIONS: Array<{ id: LayoutPresetId; label: string; caption: string }> = [
@@ -50,6 +55,9 @@ function loadStoredSettings(): ComposerSettings {
   try {
     const current = localStorage.getItem(STORAGE_KEY);
     if (current) return mergeComposerSettings(JSON.parse(current) as Partial<ComposerSettings>);
+
+    const v2 = localStorage.getItem(V2_STORAGE_KEY);
+    if (v2) return migrateV2ComposerSettings(JSON.parse(v2) as Partial<ComposerSettings>);
 
     const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
     if (legacy) {
@@ -110,7 +118,8 @@ export default function App() {
     let cancelled = false;
     loadImageFromFile(selected.file)
       .then((image) => {
-        if (!cancelled) drawPreview(canvas, image, logoImage, settings);
+        if (cancelled) return undefined;
+        return drawPreview(canvas, image, logoImage, settings);
       })
       .catch(() => {
         if (!cancelled) {
@@ -372,6 +381,24 @@ export default function App() {
 
           <section className="control-card">
             <ControlHeading step="02" title="ข้อความ" />
+
+            <p className="section-label">ฟอนต์</p>
+            <div className="font-grid">
+              {(Object.entries(FONT_PRESETS) as Array<[FontPresetId, (typeof FONT_PRESETS)[FontPresetId]]>).map(
+                ([id, font]) => (
+                  <button
+                    key={id}
+                    className={settings.text.fontPreset === id ? "font-button active" : "font-button"}
+                    style={{ fontFamily: font.canvasStack }}
+                    onClick={() => updateText("fontPreset", id)}
+                  >
+                    {font.label}
+                  </button>
+                ),
+              )}
+            </div>
+            <p className="font-note">ค่าเริ่มต้น: Kanit · ไม่มีหัว</p>
+
             <label className="field-control">
               <span>Headline</span>
               <textarea
@@ -479,8 +506,8 @@ export default function App() {
             <RangeControl
               label="ความเข้ม"
               value={settings.overlay.opacity}
-              min={0}
-              max={90}
+              min={OVERLAY_OPACITY_RANGE.min}
+              max={OVERLAY_OPACITY_RANGE.max}
               step={1}
               suffix="%"
               disabled={settings.overlay.style === "none"}

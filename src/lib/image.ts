@@ -1,12 +1,12 @@
 import { preferredOutputMime } from "./files";
 import {
+  FONT_PRESETS,
   THEME_PRESETS,
   computeTextBox,
   type ComposerSettings,
+  type FontPresetId,
 } from "./composer";
 import { computeOverlayRect } from "./overlay";
-
-const TEXT_FONT = '"Leelawadee UI", Tahoma, "Noto Sans Thai", Arial, sans-serif';
 
 export async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
@@ -27,14 +27,16 @@ export function loadImageFromUrl(url: string): Promise<HTMLImageElement> {
   });
 }
 
-export function drawPreview(
+export async function drawPreview(
   canvas: HTMLCanvasElement,
   source: HTMLImageElement,
   logo: HTMLImageElement | null,
   settings: ComposerSettings,
   maxWidth = 1400,
   maxHeight = 900,
-): void {
+): Promise<void> {
+  await ensureComposerFont(settings.text.fontPreset);
+
   const scale = Math.min(maxWidth / source.naturalWidth, maxHeight / source.naturalHeight, 1);
   const width = Math.max(1, Math.round(source.naturalWidth * scale));
   const height = Math.max(1, Math.round(source.naturalHeight * scale));
@@ -56,6 +58,7 @@ export async function renderComposedBlob(
   settings: ComposerSettings,
 ): Promise<{ blob: Blob; mime: string; width: number; height: number }> {
   const source = await loadImageFromFile(file);
+  await ensureComposerFont(settings.text.fontPreset);
   const width = source.naturalWidth;
   const height = source.naturalHeight;
 
@@ -152,6 +155,7 @@ function drawTextBlock(
   if (!headline && !subtext) return;
 
   const theme = THEME_PRESETS[settings.themePreset] ?? THEME_PRESETS["earth-cream"];
+  const font = FONT_PRESETS[settings.text.fontPreset] ?? FONT_PRESETS.kanit;
   const box = computeTextBox({ width, height }, settings.text);
   const headlineSize = Math.max(14, width * (settings.text.headlineSizePct / 100));
   const subtextSize = Math.max(10, width * (settings.text.subtextSizePct / 100));
@@ -166,9 +170,9 @@ function drawTextBlock(
   context.textBaseline = "top";
   context.textAlign = box.align;
 
-  context.font = `700 ${headlineSize}px ${TEXT_FONT}`;
+  context.font = `700 ${headlineSize}px ${font.canvasStack}`;
   const headlineLines = headline ? wrapText(context, headline, box.maxWidth) : [];
-  context.font = `400 ${subtextSize}px ${TEXT_FONT}`;
+  context.font = `400 ${subtextSize}px ${font.canvasStack}`;
   const subtextLines = subtext ? wrapText(context, subtext, box.maxWidth) : [];
 
   const totalHeight =
@@ -191,7 +195,7 @@ function drawTextBlock(
   y += ruleThickness + ruleGap;
 
   if (headlineLines.length) {
-    context.font = `700 ${headlineSize}px ${TEXT_FONT}`;
+    context.font = `700 ${headlineSize}px ${font.canvasStack}`;
     context.fillStyle = theme.headlineColor;
     context.shadowColor = "rgba(0, 0, 0, 0.18)";
     context.shadowBlur = Math.max(0, width * 0.002);
@@ -205,7 +209,7 @@ function drawTextBlock(
 
   if (subtextLines.length) {
     context.shadowBlur = 0;
-    context.font = `400 ${subtextSize}px ${TEXT_FONT}`;
+    context.font = `400 ${subtextSize}px ${font.canvasStack}`;
     context.fillStyle = theme.subtextColor;
     for (const line of subtextLines) {
       context.fillText(line, box.x, y, box.maxWidth);
@@ -267,6 +271,16 @@ function wrapText(
   }
 
   return result;
+}
+
+async function ensureComposerFont(fontPreset: FontPresetId): Promise<void> {
+  if (typeof document === "undefined" || !document.fonts) return;
+
+  const font = FONT_PRESETS[fontPreset] ?? FONT_PRESETS.kanit;
+  await Promise.allSettled([
+    document.fonts.load(`400 32px "${font.googleFamily}"`),
+    document.fonts.load(`700 32px "${font.googleFamily}"`),
+  ]);
 }
 
 function rgba(hex: string, alpha: number): string {
