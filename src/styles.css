@@ -334,6 +334,36 @@ h1 {
   box-shadow: inset 0 0 0 1px #87906d;
 }
 
+.font-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 4px;
+}
+
+.font-button {
+  min-height: 40px;
+  border: 1px solid #d4cdbd;
+  border-radius: 10px;
+  background: #f7f3e9;
+  color: #3d4038;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 130ms ease;
+}
+
+.font-button.active {
+  border-color: #87906d;
+  background: #e5e9dc;
+  box-shadow: inset 0 0 0 1px #87906d;
+}
+
+.font-note {
+  margin: 6px 0 2px;
+  color: #8c8a80;
+  font-size: 10px;
+}
+
 .field-control {
   position: relative;
   display: grid;

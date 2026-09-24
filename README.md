@@ -2,6 +2,15 @@
 
 Mini web app สำหรับเตรียมภาพก่อนโพสต์ Facebook ของเพจ “เผื่อว่าน่าสนใจ” โดยประมวลผลทั้งหมดใน browser ของผู้ใช้
 
+## v0.2.1 — Font + stronger overlay
+
+- Overlay default 90% และปรับได้ถึง 100%
+- การเปลี่ยน layout จะไม่รีเซ็ต opacity ที่ผู้ใช้ตั้งไว้
+- เลือกฟอนต์ไทยได้: Kanit, Prompt, IBM Plex Sans Thai และ Sarabun
+- Default font = Kanit (ไม่มีหัว)
+- migrate ค่า v0.2 ใน localStorage: ค่า opacity เดิมของ preset จะอัปเกรดเป็น default 90% แต่ค่าที่ผู้ใช้ปรับเองจะถูกเก็บไว้
+- Preview และ export รอ web font โหลดก่อนวาดข้อความ เพื่อลดความต่างระหว่างสองผลลัพธ์
+
 ## v0.2 — Social post composer
 
 จากเดิมที่เป็นเครื่องมือแปะโลโก้ v0.2 เพิ่มความสามารถทำภาพโพสต์แบบเร็ว:
@@ -77,7 +86,8 @@ npm run build
 - Canvas export โดยทั่วไปจะไม่รักษา EXIF/metadata เดิม
 - HEIC ยังไม่รองรับ
 - Batch export ทำแบบ sequential เพื่อลด peak memory usage
-- ฟอนต์ใน Canvas ใช้ฟอนต์ระบบที่มีในเครื่อง จึงอาจต่างกันเล็กน้อยระหว่างระบบปฏิบัติการ
+- ฟอนต์หลักโหลดผ่าน Google Fonts และมี system-font fallback หากโหลดไม่สำเร็จ
+- รูปต้นฉบับยังประมวลผลใน browser เท่านั้นและไม่ได้ upload ไปยัง server ของแอพ
 
 ## Stack
 
