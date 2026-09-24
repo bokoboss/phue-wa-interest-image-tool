@@ -265,6 +265,28 @@ h1 {
   gap: 9px;
 }
 
+.control-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-reset-button {
+  border: 0;
+  background: transparent;
+  color: #8a806f;
+  cursor: pointer;
+  padding: 4px 5px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.section-reset-button:hover {
+  color: #b25431;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .control-heading h2,
 .export-card h2 {
   margin: 0;

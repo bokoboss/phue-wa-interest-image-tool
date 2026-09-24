@@ -2,6 +2,15 @@
 
 Mini web app สำหรับเตรียมภาพก่อนโพสต์ Facebook ของเพจ “เผื่อว่าน่าสนใจ” โดยประมวลผลทั้งหมดใน browser ของผู้ใช้
 
+## v0.2.2 — Per-section reset
+
+- เพิ่มปุ่ม **คืนค่า** ในแต่ละส่วน: Layout, ข้อความ, Mood & Fade และโลโก้
+- Reset ข้อความคืนทั้ง content และ formatting ของ text section เป็นค่าเริ่มต้น
+- Reset Mood & Fade คืน Earth Cream + Bottom Fade + 90%
+- Reset โลโก้คืน position / size / margin / opacity โดยไม่เปลี่ยนไฟล์โลโก้ที่เลือกอยู่
+- Reset Layout re-apply Editorial Bottom และค่าที่ layout เป็นตัวกำหนด โดยไม่ล้างข้อความหรือ opacity ที่ผู้ใช้ตั้งเอง
+- ปุ่มรวมด้านล่างเปลี่ยนชื่อเป็น **คืนค่าดีไซน์ทั้งหมด** และยังรักษา headline/subtext ไว้เพื่อไม่ล้างงานเขียนโดยไม่ตั้งใจ
+
 ## v0.2.1 — Font + stronger overlay
 
 - Overlay default 90% และปรับได้ถึง 100%

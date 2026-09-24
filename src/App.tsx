@@ -10,6 +10,7 @@ import {
   applyLayoutPreset,
   mergeComposerSettings,
   migrateV2ComposerSettings,
+  resetComposerSection,
   type ComposerSettings,
   type FontPresetId,
   type ImageOverlayStyle,
@@ -202,6 +203,10 @@ export default function App() {
     setSettings((current) => ({ ...current, themePreset }));
   }
 
+  function resetSection(section: "layout" | "text" | "mood" | "logo") {
+    setSettings((current) => resetComposerSection(current, section));
+  }
+
   function resetDesign() {
     setSettings((current) => ({
       ...mergeComposerSettings(DEFAULT_COMPOSER_SETTINGS),
@@ -364,7 +369,7 @@ export default function App() {
 
         <aside className="controls-panel">
           <section className="control-card">
-            <ControlHeading step="01" title="Layout" />
+            <ControlHeading step="01" title="Layout" onReset={() => resetSection("layout")} />
             <div className="layout-grid">
               {LAYOUT_OPTIONS.map((option) => (
                 <button
@@ -380,7 +385,7 @@ export default function App() {
           </section>
 
           <section className="control-card">
-            <ControlHeading step="02" title="ข้อความ" />
+            <ControlHeading step="02" title="ข้อความ" onReset={() => resetSection("text")} />
 
             <p className="section-label">ฟอนต์</p>
             <div className="font-grid">
@@ -469,7 +474,7 @@ export default function App() {
           </section>
 
           <section className="control-card">
-            <ControlHeading step="03" title="Mood & Fade" />
+            <ControlHeading step="03" title="Mood & Fade" onReset={() => resetSection("mood")} />
             <p className="section-label">โทนสี</p>
             <div className="theme-grid">
               {(Object.entries(THEME_PRESETS) as Array<[ThemePresetId, (typeof THEME_PRESETS)[ThemePresetId]]>).map(
@@ -521,7 +526,17 @@ export default function App() {
                 <span className="step-number">04</span>
                 <h2>โลโก้</h2>
               </div>
-              <span className={logoImage ? "status-dot ready" : "status-dot"} />
+              <div className="control-heading-actions">
+                <button
+                  className="section-reset-button"
+                  type="button"
+                  onClick={() => resetSection("logo")}
+                  title="คืนค่าโลโก้ส่วนนี้เป็นค่าเริ่มต้น"
+                >
+                  คืนค่า
+                </button>
+                <span className={logoImage ? "status-dot ready" : "status-dot"} />
+              </div>
             </div>
 
             <p className="logo-label">{logoLabel}</p>
@@ -589,7 +604,7 @@ export default function App() {
             />
           </section>
 
-          <button className="reset-button" onClick={resetDesign}>คืนค่าดีไซน์เริ่มต้น</button>
+          <button className="reset-button" onClick={resetDesign}>คืนค่าดีไซน์ทั้งหมด</button>
 
           <section className="export-card">
             <div>
@@ -626,13 +641,31 @@ export default function App() {
   );
 }
 
-function ControlHeading({ step, title }: { step: string; title: string }) {
+function ControlHeading({
+  step,
+  title,
+  onReset,
+}: {
+  step: string;
+  title: string;
+  onReset?: () => void;
+}) {
   return (
     <div className="control-heading">
       <div>
         <span className="step-number">{step}</span>
         <h2>{title}</h2>
       </div>
+      {onReset && (
+        <button
+          className="section-reset-button"
+          type="button"
+          onClick={onReset}
+          title={`คืนค่า ${title} เป็นค่าเริ่มต้น`}
+        >
+          คืนค่า
+        </button>
+      )}
     </div>
   );
 }

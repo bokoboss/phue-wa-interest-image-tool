@@ -6,6 +6,7 @@ export type TextAlign = "left" | "center";
 export type ThemePresetId = "earth-cream" | "sage-clay" | "warm-clay";
 export type LayoutPresetId = "editorial-bottom" | "editorial-top" | "center-focus";
 export type FontPresetId = "kanit" | "prompt" | "ibm-plex-sans-thai" | "sarabun";
+export type ComposerSection = "layout" | "text" | "mood" | "logo";
 
 export interface ImageOverlaySettings {
   style: ImageOverlayStyle;
@@ -225,6 +226,37 @@ export function applyLayoutPreset(
       widthPct: 65,
     },
     logo: { ...current.logo, position: "bottom-right" },
+  };
+}
+
+export function resetComposerSection(
+  settings: ComposerSettings,
+  section: ComposerSection,
+): ComposerSettings {
+  const current = mergeComposerSettings(settings);
+
+  if (section === "layout") {
+    return applyLayoutPreset(current, DEFAULT_COMPOSER_SETTINGS.layoutPreset);
+  }
+
+  if (section === "text") {
+    return {
+      ...current,
+      text: { ...DEFAULT_COMPOSER_SETTINGS.text },
+    };
+  }
+
+  if (section === "mood") {
+    return {
+      ...current,
+      themePreset: DEFAULT_COMPOSER_SETTINGS.themePreset,
+      overlay: { ...DEFAULT_COMPOSER_SETTINGS.overlay },
+    };
+  }
+
+  return {
+    ...current,
+    logo: { ...DEFAULT_COMPOSER_SETTINGS.logo },
   };
 }
 
