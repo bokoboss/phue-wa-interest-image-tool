@@ -2,6 +2,14 @@
 
 Mini web app สำหรับเตรียมภาพก่อนโพสต์ Facebook ของเพจ “เผื่อว่าน่าสนใจ” โดยประมวลผลทั้งหมดใน browser ของผู้ใช้
 
+## v0.2.3 — Clipboard paste
+
+- รองรับการวางภาพที่ copy มาจาก clipboard ด้วย `Ctrl+V` / `Cmd+V`
+- ใช้ได้ทั้ง screenshot และภาพที่ copy มาจากแอพ/เว็บที่ส่งข้อมูลเป็น JPG, PNG หรือ WebP
+- ภาพที่ paste จะเข้า flow เดียวกับ drag & drop / file picker และนำไป preview, batch และ export ได้ทันที
+- ตั้งชื่อไฟล์ที่ paste ให้อัตโนมัติแบบ unique เพื่อลดโอกาสชื่อชนกันเวลา export ZIP
+- ถ้า clipboard มีแต่ข้อความ จะไม่ intercept การ paste ปกติในช่อง Headline/Subtext
+
 ## v0.2.2 — Per-section reset
 
 - เพิ่มปุ่ม **คืนค่า** ในแต่ละส่วน: Layout, ข้อความ, Mood & Fade และโลโก้
