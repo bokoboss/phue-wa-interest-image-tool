@@ -2,6 +2,16 @@
 
 Mini web app สำหรับเตรียมภาพก่อนโพสต์ Facebook ของเพจ “เผื่อว่าน่าสนใจ” โดยประมวลผลทั้งหมดใน browser ของผู้ใช้
 
+## v0.4 — Square Card polish
+
+- เพิ่ม slider **ขนาดข้อความรอง** 1.8–5.0% สำหรับทั้ง Full Image และ Square Card
+- Full Image และ Square Card จำ typography แยกกัน: headline/subtext size, text width และ padding
+- Full Image และ Square Card จำ logo position / size / margin / opacity แยกกัน
+- migration ครั้งแรกจะคัดลอกค่าที่เคยจูนร่วมกันไปเป็นค่าเริ่มต้นของ Square Card เพื่อไม่ให้ดีไซน์เดิมหาย
+- Cover mode เลือกตำแหน่ง crop ได้ ซ้าย/กลาง/ขวา และ บน/กลาง/ล่าง
+- เพิ่ม **Blurred Photo** background: ใช้ภาพต้นฉบับขยายเต็มกรอบและเบลอไว้ด้านหลังภาพแบบ Contain
+- reset ข้อความ/โลโก้จะรีเซ็ต style เฉพาะ output mode ที่กำลังใช้อยู่ ส่วน headline/subtext ยังคงเป็น content ร่วมกัน
+
 ## v0.3.2 — Subtext readability
 
 - เพิ่ม default Subtext จาก 2.25% เป็น 2.8%
