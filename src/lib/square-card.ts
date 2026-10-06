@@ -11,6 +11,8 @@ export interface SquareRegions {
   text: Rect;
 }
 
+export const SQUARE_MIN_SUBTEXT_SIZE_PCT = 1.8;
+
 export interface AutoSquarePalette {
   imageStart: string;
   imageEnd: string;
