@@ -52,8 +52,10 @@ export function computeImagePlacement(
 
   const width = source.width * scale;
   const height = source.height * scale;
-  const x = alignAxis(area.x, area.width, width, positionX);
-  const y = alignAxis(area.y, area.height, height, positionY);
+  const effectiveX = fitMode === "cover" ? positionX : "center";
+  const effectiveY = fitMode === "cover" ? positionY : "center";
+  const x = alignAxis(area.x, area.width, width, effectiveX);
+  const y = alignAxis(area.y, area.height, height, effectiveY);
 
   return { x, y, width, height };
 }
