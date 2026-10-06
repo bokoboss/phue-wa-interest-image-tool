@@ -1,5 +1,5 @@
 import type { SquareFitMode } from "./composer";
-import type { Size } from "./overlay";
+import { computeOverlayRect, type OverlaySettings, type Size } from "./overlay";
 
 export interface Rect extends Size {
   x: number;
@@ -50,6 +50,25 @@ export function computeImagePlacement(
     y: area.y + (area.height - height) / 2,
     width,
     height,
+  };
+}
+
+export function computeSquareLogoRect(
+  imageArea: Rect,
+  logo: Size,
+  settings: OverlaySettings,
+): Rect {
+  const relative = computeOverlayRect(
+    { width: imageArea.width, height: imageArea.height },
+    logo,
+    settings,
+  );
+
+  return {
+    x: imageArea.x + relative.x,
+    y: imageArea.y + relative.y,
+    width: relative.width,
+    height: relative.height,
   };
 }
 
