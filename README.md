@@ -2,6 +2,38 @@
 
 Mini web app สำหรับเตรียมภาพก่อนโพสต์ Facebook ของเพจ “เผื่อว่าน่าสนใจ” โดยประมวลผลทั้งหมดใน browser ของผู้ใช้
 
+## v0.3 — Square Card 1:1
+
+เพิ่ม output mode ใหม่โดยยังคง Full Image mode เดิมไว้ครบ:
+
+- **Full Image** — ใช้ pixel dimensions เดิมของภาพต้นฉบับ พร้อม fade / text / logo แบบเดิม
+- **Square Card 1:1** — ภาพอยู่ด้านบน พื้นที่ข้อความถูกล็อกไว้ด้านล่าง
+- Square export เลือกได้ 1080×1080 หรือ 2048×2048
+- ปรับสัดส่วนพื้นที่ภาพ 55–80% (default 68%)
+- การวางภาพ:
+  - Contain — เห็นภาพครบ
+  - Cover — เต็มพื้นที่และ crop เท่าที่จำเป็น
+- พื้นหลังเมื่อภาพไม่เต็ม:
+  - Auto Gradient — ดึงโทนสีจากภาพแล้วสร้าง gradient
+  - Auto Solid — ดึงโทนสีจากภาพเป็นสีพื้น
+  - Custom — เลือกสีเอง
+- พื้นที่ข้อความด้านล่าง:
+  - Auto — ใช้สีที่ derive จากภาพ
+  - Theme — ใช้สีจาก earth-tone theme
+  - Custom — เลือกสีเอง
+- สีข้อความใน panel ปรับ light/dark อัตโนมัติตาม contrast
+- ถ้าข้อความยาวเกินพื้นที่ ระบบจะลดขนาดตัวอักษรและตัดท้ายด้วย ellipsis เมื่อจำเป็น
+- โลโก้ถูกจำกัดให้อยู่ในพื้นที่ภาพ ไม่ทับ text panel
+- Preview และ export ใช้ rendering logic ชุดเดียวกัน
+- Square Card export เป็น JPEG quality 95%
+- design preferences ถูกจำใน localStorage แต่ headline/subtext ไม่ถูก persist ข้าม session
+
+## v0.2.4 — Fresh post copy
+
+- Headline/Subtext เริ่มว่างทุก session
+- Design preferences เช่น font, layout, theme, fade และ logo settings ยังจำต่อ
+- ป้องกันข้อความจากโพสต์ก่อนหน้าติดมากับภาพใหม่
+
 ## v0.2.3 — Clipboard paste
 
 - รองรับการวางภาพที่ copy มาจาก clipboard ด้วย `Ctrl+V` / `Cmd+V`
@@ -12,39 +44,18 @@ Mini web app สำหรับเตรียมภาพก่อนโพส�
 
 ## v0.2.2 — Per-section reset
 
-- เพิ่มปุ่ม **คืนค่า** ในแต่ละส่วน: Layout, ข้อความ, Mood & Fade และโลโก้
-- Reset ข้อความคืนทั้ง content และ formatting ของ text section เป็นค่าเริ่มต้น
+- เพิ่มปุ่ม **คืนค่า** ในแต่ละส่วน
+- Reset ข้อความคืน content + formatting เป็นค่าเริ่มต้น
 - Reset Mood & Fade คืน Earth Cream + Bottom Fade + 90%
-- Reset โลโก้คืน position / size / margin / opacity โดยไม่เปลี่ยนไฟล์โลโก้ที่เลือกอยู่
-- Reset Layout re-apply Editorial Bottom และค่าที่ layout เป็นตัวกำหนด โดยไม่ล้างข้อความหรือ opacity ที่ผู้ใช้ตั้งเอง
-- ปุ่มรวมด้านล่างเปลี่ยนชื่อเป็น **คืนค่าดีไซน์ทั้งหมด** และยังรักษา headline/subtext ไว้เพื่อไม่ล้างงานเขียนโดยไม่ตั้งใจ
+- Reset โลโก้คืน position / size / margin / opacity โดยไม่เปลี่ยนไฟล์โลโก้ที่เลือก
+- ปุ่ม **คืนค่าดีไซน์ทั้งหมด** ยังคง headline/subtext ที่กำลังเขียนไว้
 
 ## v0.2.1 — Font + stronger overlay
 
 - Overlay default 90% และปรับได้ถึง 100%
-- การเปลี่ยน layout จะไม่รีเซ็ต opacity ที่ผู้ใช้ตั้งไว้
 - เลือกฟอนต์ไทยได้: Kanit, Prompt, IBM Plex Sans Thai และ Sarabun
 - Default font = Kanit (ไม่มีหัว)
-- migrate ค่า v0.2 ใน localStorage: ค่า opacity เดิมของ preset จะอัปเกรดเป็น default 90% แต่ค่าที่ผู้ใช้ปรับเองจะถูกเก็บไว้
-- Preview และ export รอ web font โหลดก่อนวาดข้อความ เพื่อลดความต่างระหว่างสองผลลัพธ์
-
-## v0.2 — Social post composer
-
-จากเดิมที่เป็นเครื่องมือแปะโลโก้ v0.2 เพิ่มความสามารถทำภาพโพสต์แบบเร็ว:
-
-- Drag & drop / เลือกรูปหลายไฟล์
-- รองรับ JPG, PNG และ WebP
-- ใส่ headline และ subtext
-- Dark overlay / gradient: none, bottom fade, top fade, full tint
-- Layout presets: Editorial Bottom, Editorial Top, Center Focus
-- Earth-tone theme presets: Earth Cream, Sage & Clay, Warm Clay
-- ปรับขนาดหัวเรื่อง, ความกว้าง text block และ safe margin
-- ปรับตำแหน่ง, ขนาด, margin และ opacity ของโลโก้
-- Preview แบบ real-time
-- จำค่าดีไซน์ใน localStorage
-- Export รูปเดี่ยว หรือหลายรูปเป็น ZIP
-- Export ด้วย pixel dimensions เดิมของภาพต้นฉบับ
-- ไม่มี backend และไม่มีการ upload รูปไปที่ server
+- Preview และ export รอ web font โหลดก่อนวาดข้อความ
 
 ## Default logo
 
@@ -55,17 +66,6 @@ public/logo.png
 ```
 
 หากโหลดไม่ได้ ผู้ใช้ยังเลือกโลโก้จากเครื่องได้
-
-## Rendering order
-
-Canvas render ตามลำดับ:
-
-1. ภาพต้นฉบับ
-2. Overlay / gradient
-3. Headline + subtext + accent rule
-4. Logo
-
-ทั้ง preview และ export ใช้ rendering logic ชุดเดียวกัน แต่ export จะสร้าง canvas ตาม natural pixel dimensions ของภาพต้นฉบับ
 
 ## Development
 
@@ -90,7 +90,7 @@ npm run build
 
 ## Deployment
 
-โปรเจกต์เป็น Vite static app จึง deploy ไป Vercel ได้โดยตรง:
+Vite static app:
 
 - Framework preset: Vite
 - Build command: `npm run build`
@@ -98,13 +98,14 @@ npm run build
 
 ## Image handling notes
 
-- Pixel dimensions ของภาพ export เท่ากับภาพที่ browser decode ได้จากต้นฉบับ
-- JPG และ WebP จะถูก encode ใหม่ที่ quality 95%
+- Full Image mode คง pixel dimensions ตามภาพที่ browser decode ได้
+- Square Card mode export 1080×1080 หรือ 2048×2048
+- JPG / WebP re-encode ที่ quality 95%
 - Canvas export โดยทั่วไปจะไม่รักษา EXIF/metadata เดิม
 - HEIC ยังไม่รองรับ
 - Batch export ทำแบบ sequential เพื่อลด peak memory usage
-- ฟอนต์หลักโหลดผ่าน Google Fonts และมี system-font fallback หากโหลดไม่สำเร็จ
-- รูปต้นฉบับยังประมวลผลใน browser เท่านั้นและไม่ได้ upload ไปยัง server ของแอพ
+- ฟอนต์หลักโหลดผ่าน Google Fonts และมี system-font fallback
+- รูปต้นฉบับประมวลผลใน browser และไม่ได้ upload ไป backend
 
 ## Stack
 
