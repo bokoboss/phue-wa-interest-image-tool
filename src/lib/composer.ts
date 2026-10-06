@@ -86,6 +86,8 @@ export const OVERLAY_OPACITY_RANGE = {
   max: 100,
 } as const;
 
+const LEGACY_DEFAULT_SUBTEXT_SIZE_PCT = 2.25;
+
 export const FONT_PRESETS: Record<FontPresetId, FontPreset> = {
   kanit: {
     label: "Kanit",
@@ -149,7 +151,7 @@ export const DEFAULT_COMPOSER_SETTINGS: ComposerSettings = {
     widthPct: 65,
     paddingPct: 5,
     headlineSizePct: 5.6,
-    subtextSizePct: 2.25,
+    subtextSizePct: 2.8,
     fontPreset: "kanit",
   },
   logo: {
@@ -180,6 +182,10 @@ export function mergeComposerSettings(
 
   if (!text.fontPreset || !(text.fontPreset in FONT_PRESETS)) {
     text.fontPreset = "kanit";
+  }
+
+  if (input?.text?.subtextSizePct === LEGACY_DEFAULT_SUBTEXT_SIZE_PCT) {
+    text.subtextSizePct = DEFAULT_COMPOSER_SETTINGS.text.subtextSizePct;
   }
 
   const squareCard: SquareCardSettings = {
