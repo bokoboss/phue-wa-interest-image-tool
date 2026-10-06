@@ -9,7 +9,9 @@ export type LayoutPresetId = "editorial-bottom" | "editorial-top" | "center-focu
 export type FontPresetId = "kanit" | "prompt" | "ibm-plex-sans-thai" | "sarabun";
 export type SquareOutputSize = 1080 | 2048;
 export type SquareFitMode = "contain" | "cover";
-export type SquareBackgroundMode = "auto-gradient" | "auto-solid" | "custom";
+export type SquareImagePositionX = "left" | "center" | "right";
+export type SquareImagePositionY = "top" | "center" | "bottom";
+export type SquareBackgroundMode = "auto-gradient" | "auto-solid" | "blurred" | "custom";
 export type SquarePanelMode = "auto" | "theme" | "custom";
 export type ComposerSection = "output" | "square" | "layout" | "text" | "mood" | "logo";
 
@@ -30,14 +32,25 @@ export interface TextSettings {
   fontPreset: FontPresetId;
 }
 
+export interface SquareTextStyleSettings {
+  widthPct: number;
+  paddingPct: number;
+  headlineSizePct: number;
+  subtextSizePct: number;
+}
+
 export interface SquareCardSettings {
   outputSize: SquareOutputSize;
   imageAreaPct: number;
   fitMode: SquareFitMode;
+  imagePositionX: SquareImagePositionX;
+  imagePositionY: SquareImagePositionY;
   backgroundMode: SquareBackgroundMode;
   customBackgroundColor: string;
   panelMode: SquarePanelMode;
   customPanelColor: string;
+  textStyle: SquareTextStyleSettings;
+  logo: OverlaySettings;
 }
 
 export interface ComposerSettings {
@@ -50,13 +63,20 @@ export interface ComposerSettings {
   squareCard: SquareCardSettings;
 }
 
+export type SquareCardSettingsInput = Partial<
+  Omit<SquareCardSettings, "textStyle" | "logo">
+> & {
+  textStyle?: Partial<SquareTextStyleSettings>;
+  logo?: Partial<OverlaySettings>;
+};
+
 export type ComposerSettingsInput = Partial<
   Omit<ComposerSettings, "overlay" | "text" | "logo" | "squareCard">
 > & {
   overlay?: Partial<ImageOverlaySettings>;
   text?: Partial<TextSettings>;
   logo?: Partial<OverlaySettings>;
-  squareCard?: Partial<SquareCardSettings>;
+  squareCard?: SquareCardSettingsInput;
 };
 
 export interface ThemePreset {
@@ -135,6 +155,33 @@ export const THEME_PRESETS: Record<ThemePresetId, ThemePreset> = {
   },
 };
 
+const DEFAULT_LOGO_SETTINGS: OverlaySettings = {
+  ...DEFAULT_SETTINGS,
+  sizePct: 9,
+  marginPct: 2.5,
+  opacity: 92,
+  position: "bottom-right",
+};
+
+const DEFAULT_TEXT_SETTINGS: TextSettings = {
+  headline: "",
+  subtext: "",
+  position: "bottom-left",
+  align: "left",
+  widthPct: 65,
+  paddingPct: 5,
+  headlineSizePct: 5.6,
+  subtextSizePct: 2.8,
+  fontPreset: "kanit",
+};
+
+const DEFAULT_SQUARE_TEXT_STYLE: SquareTextStyleSettings = {
+  widthPct: DEFAULT_TEXT_SETTINGS.widthPct,
+  paddingPct: DEFAULT_TEXT_SETTINGS.paddingPct,
+  headlineSizePct: DEFAULT_TEXT_SETTINGS.headlineSizePct,
+  subtextSizePct: DEFAULT_TEXT_SETTINGS.subtextSizePct,
+};
+
 export const DEFAULT_COMPOSER_SETTINGS: ComposerSettings = {
   outputMode: "full-image",
   layoutPreset: "editorial-bottom",
@@ -143,32 +190,20 @@ export const DEFAULT_COMPOSER_SETTINGS: ComposerSettings = {
     style: "bottom-fade",
     opacity: 90,
   },
-  text: {
-    headline: "",
-    subtext: "",
-    position: "bottom-left",
-    align: "left",
-    widthPct: 65,
-    paddingPct: 5,
-    headlineSizePct: 5.6,
-    subtextSizePct: 2.8,
-    fontPreset: "kanit",
-  },
-  logo: {
-    ...DEFAULT_SETTINGS,
-    sizePct: 9,
-    marginPct: 2.5,
-    opacity: 92,
-    position: "bottom-right",
-  },
+  text: { ...DEFAULT_TEXT_SETTINGS },
+  logo: { ...DEFAULT_LOGO_SETTINGS },
   squareCard: {
     outputSize: 1080,
     imageAreaPct: 68,
     fitMode: "contain",
+    imagePositionX: "center",
+    imagePositionY: "center",
     backgroundMode: "auto-gradient",
     customBackgroundColor: "#D8C7AF",
     panelMode: "auto",
     customPanelColor: "#F4EBDD",
+    textStyle: { ...DEFAULT_SQUARE_TEXT_STYLE },
+    logo: { ...DEFAULT_LOGO_SETTINGS },
   },
 };
 
@@ -188,14 +223,68 @@ export function mergeComposerSettings(
     text.subtextSizePct = DEFAULT_COMPOSER_SETTINGS.text.subtextSizePct;
   }
 
+  const logo: OverlaySettings = {
+    ...DEFAULT_COMPOSER_SETTINGS.logo,
+    ...input?.logo,
+  };
+
+  const squareInput = input?.squareCard;
+  const migratedSquareTextStyle: SquareTextStyleSettings = squareInput?.textStyle
+    ? {
+        ...DEFAULT_COMPOSER_SETTINGS.squareCard.textStyle,
+        ...squareInput.textStyle,
+      }
+    : {
+        widthPct: text.widthPct,
+        paddingPct: text.paddingPct,
+        headlineSizePct: text.headlineSizePct,
+        subtextSizePct: text.subtextSizePct,
+      };
+
+  if (
+    squareInput?.textStyle?.subtextSizePct === LEGACY_DEFAULT_SUBTEXT_SIZE_PCT
+  ) {
+    migratedSquareTextStyle.subtextSizePct =
+      DEFAULT_COMPOSER_SETTINGS.squareCard.textStyle.subtextSizePct;
+  }
+
+  const migratedSquareLogo: OverlaySettings = squareInput?.logo
+    ? {
+        ...DEFAULT_COMPOSER_SETTINGS.squareCard.logo,
+        ...squareInput.logo,
+      }
+    : { ...logo };
+
   const squareCard: SquareCardSettings = {
     ...DEFAULT_COMPOSER_SETTINGS.squareCard,
-    ...input?.squareCard,
+    ...squareInput,
+    textStyle: migratedSquareTextStyle,
+    logo: migratedSquareLogo,
   };
 
   squareCard.imageAreaPct = Math.max(55, Math.min(80, squareCard.imageAreaPct));
   if (squareCard.outputSize !== 1080 && squareCard.outputSize !== 2048) {
     squareCard.outputSize = 1080;
+  }
+
+  if (!["contain", "cover"].includes(squareCard.fitMode)) {
+    squareCard.fitMode = "contain";
+  }
+  if (!["left", "center", "right"].includes(squareCard.imagePositionX)) {
+    squareCard.imagePositionX = "center";
+  }
+  if (!["top", "center", "bottom"].includes(squareCard.imagePositionY)) {
+    squareCard.imagePositionY = "center";
+  }
+  if (
+    !["auto-gradient", "auto-solid", "blurred", "custom"].includes(
+      squareCard.backgroundMode,
+    )
+  ) {
+    squareCard.backgroundMode = "auto-gradient";
+  }
+  if (!["auto", "theme", "custom"].includes(squareCard.panelMode)) {
+    squareCard.panelMode = "auto";
   }
 
   return {
@@ -206,10 +295,7 @@ export function mergeComposerSettings(
       ...input?.overlay,
     },
     text,
-    logo: {
-      ...DEFAULT_COMPOSER_SETTINGS.logo,
-      ...input?.logo,
-    },
+    logo,
     squareCard,
   };
 }
@@ -298,7 +384,11 @@ export function resetComposerSection(
   if (section === "square") {
     return {
       ...current,
-      squareCard: { ...DEFAULT_COMPOSER_SETTINGS.squareCard },
+      squareCard: {
+        ...DEFAULT_COMPOSER_SETTINGS.squareCard,
+        textStyle: { ...DEFAULT_COMPOSER_SETTINGS.squareCard.textStyle },
+        logo: { ...DEFAULT_COMPOSER_SETTINGS.squareCard.logo },
+      },
     };
   }
 
@@ -307,6 +397,22 @@ export function resetComposerSection(
   }
 
   if (section === "text") {
+    if (current.outputMode === "square-card") {
+      return {
+        ...current,
+        text: {
+          ...current.text,
+          headline: "",
+          subtext: "",
+          fontPreset: DEFAULT_COMPOSER_SETTINGS.text.fontPreset,
+        },
+        squareCard: {
+          ...current.squareCard,
+          textStyle: { ...DEFAULT_COMPOSER_SETTINGS.squareCard.textStyle },
+        },
+      };
+    }
+
     return {
       ...current,
       text: { ...DEFAULT_COMPOSER_SETTINGS.text },
@@ -318,6 +424,16 @@ export function resetComposerSection(
       ...current,
       themePreset: DEFAULT_COMPOSER_SETTINGS.themePreset,
       overlay: { ...DEFAULT_COMPOSER_SETTINGS.overlay },
+    };
+  }
+
+  if (current.outputMode === "square-card") {
+    return {
+      ...current,
+      squareCard: {
+        ...current.squareCard,
+        logo: { ...DEFAULT_COMPOSER_SETTINGS.squareCard.logo },
+      },
     };
   }
 
