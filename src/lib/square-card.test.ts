@@ -48,6 +48,19 @@ describe("square-card image placement", () => {
     expect(rect.y).toBeCloseTo(0);
   });
 
+  it("keeps contain centered even after a cover crop position was selected", () => {
+    const rect = computeImagePlacement(
+      { width: 900, height: 1600 },
+      area,
+      "contain",
+      "right",
+      "bottom",
+    );
+
+    expect(rect.x).toBeCloseTo(333.45);
+    expect(rect.y).toBeCloseTo(0);
+  });
+
   it("covers the image region when cropping is requested", () => {
     const rect = computeImagePlacement({ width: 1600, height: 900 }, area, "cover");
 
