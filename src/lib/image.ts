@@ -145,11 +145,13 @@ function drawSquareCard(
   const auto = deriveAutoSquarePalette(sourcePalette.primary, sourcePalette.secondary);
   const theme = THEME_PRESETS[settings.themePreset] ?? THEME_PRESETS["earth-cream"];
 
-  drawSquareImageBackground(context, regions.image, settings, auto);
+  drawSquareImageBackground(context, regions.image, settings, auto, source);
   const placement = computeImagePlacement(
     { width: source.naturalWidth, height: source.naturalHeight },
     regions.image,
     settings.squareCard.fitMode,
+    settings.squareCard.imagePositionX,
+    settings.squareCard.imagePositionY,
   );
 
   context.save();
@@ -177,11 +179,11 @@ function drawSquareCard(
     const logoRect = computeSquareLogoRect(
       regions.image,
       { width: logo.naturalWidth, height: logo.naturalHeight },
-      settings.logo,
+      settings.squareCard.logo,
     );
 
     context.save();
-    context.globalAlpha = settings.logo.opacity / 100;
+    context.globalAlpha = settings.squareCard.logo.opacity / 100;
     context.drawImage(logo, logoRect.x, logoRect.y, logoRect.width, logoRect.height);
     context.restore();
   }
@@ -194,6 +196,7 @@ function drawSquareImageBackground(
   area: Rect,
   settings: ComposerSettings,
   auto: ReturnType<typeof deriveAutoSquarePalette>,
+  source: HTMLImageElement,
 ): void {
   if (settings.squareCard.backgroundMode === "custom") {
     context.fillStyle = normalizeHexColor(settings.squareCard.customBackgroundColor);
@@ -204,6 +207,33 @@ function drawSquareImageBackground(
   if (settings.squareCard.backgroundMode === "auto-solid") {
     context.fillStyle = auto.solid;
     context.fillRect(area.x, area.y, area.width, area.height);
+    return;
+  }
+
+  if (settings.squareCard.backgroundMode === "blurred") {
+    const placement = computeImagePlacement(
+      { width: source.naturalWidth, height: source.naturalHeight },
+      area,
+      "cover",
+      "center",
+      "center",
+    );
+    const scale = 1.08;
+    const width = placement.width * scale;
+    const height = placement.height * scale;
+    const x = placement.x - (width - placement.width) / 2;
+    const y = placement.y - (height - placement.height) / 2;
+
+    context.save();
+    context.beginPath();
+    context.rect(area.x, area.y, area.width, area.height);
+    context.clip();
+    context.filter = `blur(${Math.max(14, area.width * 0.028)}px) saturate(0.82) brightness(0.82)`;
+    context.drawImage(source, x, y, width, height);
+    context.filter = "none";
+    context.fillStyle = rgba(auto.imageEnd, 0.14);
+    context.fillRect(area.x, area.y, area.width, area.height);
+    context.restore();
     return;
   }
 
@@ -273,18 +303,19 @@ function drawSquarePanelText(
   const theme = THEME_PRESETS[settings.themePreset] ?? THEME_PRESETS["earth-cream"];
   const font = FONT_PRESETS[settings.text.fontPreset] ?? FONT_PRESETS.kanit;
   const colors = readableTextPalette(panelColor);
+  const style = settings.squareCard.textStyle;
   const padding = Math.min(
-    panel.width * Math.max(0.035, settings.text.paddingPct / 100),
+    panel.width * Math.max(0.035, style.paddingPct / 100),
     panel.height * 0.22,
   );
   const maxWidth = Math.min(
     panel.width - padding * 2,
-    panel.width * (Math.max(58, settings.text.widthPct) / 100),
+    panel.width * (Math.max(58, style.widthPct) / 100),
   );
   const availableHeight = Math.max(1, panel.height - padding * 2);
 
-  let headlineSize = Math.max(18, panel.width * (settings.text.headlineSizePct / 100));
-  let subtextSize = Math.max(13, panel.width * (settings.text.subtextSizePct / 100));
+  let headlineSize = Math.max(18, panel.width * (style.headlineSizePct / 100));
+  let subtextSize = Math.max(13, panel.width * (style.subtextSizePct / 100));
   const minHeadline = panel.width * 0.027;
   const minSubtext = panel.width * (SQUARE_MIN_SUBTEXT_SIZE_PCT / 100);
 

@@ -48,12 +48,46 @@ describe("square-card image placement", () => {
     expect(rect.y).toBeCloseTo(0);
   });
 
+  it("keeps contain centered even after a cover crop position was selected", () => {
+    const rect = computeImagePlacement(
+      { width: 900, height: 1600 },
+      area,
+      "contain",
+      "right",
+      "bottom",
+    );
+
+    expect(rect.x).toBeCloseTo(333.45);
+    expect(rect.y).toBeCloseTo(0);
+  });
+
   it("covers the image region when cropping is requested", () => {
     const rect = computeImagePlacement({ width: 1600, height: 900 }, area, "cover");
 
     expect(rect.height).toBeCloseTo(734.4);
     expect(rect.width).toBeCloseTo(1305.6);
     expect(rect.x).toBeCloseTo(-112.8);
+  });
+
+  it("moves horizontal cover crop left, center, or right", () => {
+    const left = computeImagePlacement({ width: 1600, height: 900 }, area, "cover", "left", "center");
+    const center = computeImagePlacement({ width: 1600, height: 900 }, area, "cover", "center", "center");
+    const right = computeImagePlacement({ width: 1600, height: 900 }, area, "cover", "right", "center");
+
+    expect(left.x).toBeCloseTo(0);
+    expect(center.x).toBeCloseTo(-112.8);
+    expect(right.x).toBeCloseTo(-225.6);
+  });
+
+  it("moves vertical cover crop top, center, or bottom", () => {
+    const portrait = { width: 900, height: 1600 };
+    const top = computeImagePlacement(portrait, area, "cover", "center", "top");
+    const center = computeImagePlacement(portrait, area, "cover", "center", "center");
+    const bottom = computeImagePlacement(portrait, area, "cover", "center", "bottom");
+
+    expect(top.y).toBeCloseTo(0);
+    expect(center.y).toBeCloseTo(-592.8);
+    expect(bottom.y).toBeCloseTo(-1185.6);
   });
 });
 

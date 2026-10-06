@@ -1,4 +1,8 @@
-import type { SquareFitMode } from "./composer";
+import type {
+  SquareFitMode,
+  SquareImagePositionX,
+  SquareImagePositionY,
+} from "./composer";
 import { computeOverlayRect, type OverlaySettings, type Size } from "./overlay";
 
 export interface Rect extends Size {
@@ -34,6 +38,8 @@ export function computeImagePlacement(
   source: Size,
   area: Rect,
   fitMode: SquareFitMode,
+  positionX: SquareImagePositionX = "center",
+  positionY: SquareImagePositionY = "center",
 ): Rect {
   if (source.width <= 0 || source.height <= 0 || area.width <= 0 || area.height <= 0) {
     throw new Error("Source and target dimensions must be positive.");
@@ -46,13 +52,12 @@ export function computeImagePlacement(
 
   const width = source.width * scale;
   const height = source.height * scale;
+  const effectiveX = fitMode === "cover" ? positionX : "center";
+  const effectiveY = fitMode === "cover" ? positionY : "center";
+  const x = alignAxis(area.x, area.width, width, effectiveX);
+  const y = alignAxis(area.y, area.height, height, effectiveY);
 
-  return {
-    x: area.x + (area.width - width) / 2,
-    y: area.y + (area.height - height) / 2,
-    width,
-    height,
-  };
+  return { x, y, width, height };
 }
 
 export function computeSquareLogoRect(
@@ -117,6 +122,19 @@ export function normalizeHexColor(value: string, fallback = "#D8C7AF"): string {
     return `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`;
   }
   return fallback;
+}
+
+function alignAxis(
+  start: number,
+  available: number,
+  content: number,
+  position: SquareImagePositionX | SquareImagePositionY,
+): number {
+  if (position === "left" || position === "top") return start;
+  if (position === "right" || position === "bottom") {
+    return start + available - content;
+  }
+  return start + (available - content) / 2;
 }
 
 function relativeLuminance(hex: string): number {
