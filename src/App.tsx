@@ -19,8 +19,11 @@ import {
   type OutputMode,
   type SquareBackgroundMode,
   type SquareFitMode,
+  type SquareImagePositionX,
+  type SquareImagePositionY,
   type SquareOutputSize,
   type SquarePanelMode,
+  type SquareTextStyleSettings,
   type TextPosition,
   type ThemePresetId,
 } from "./lib/composer";
@@ -200,10 +203,44 @@ export default function App() {
     key: K,
     value: ComposerSettings["logo"][K],
   ) {
-    setSettings((current) => ({
-      ...current,
-      logo: { ...current.logo, [key]: value },
-    }));
+    setSettings((current) => {
+      if (current.outputMode === "square-card") {
+        return {
+          ...current,
+          squareCard: {
+            ...current.squareCard,
+            logo: { ...current.squareCard.logo, [key]: value },
+          },
+        };
+      }
+
+      return {
+        ...current,
+        logo: { ...current.logo, [key]: value },
+      };
+    });
+  }
+
+  function updateTextStyle<K extends keyof SquareTextStyleSettings>(
+    key: K,
+    value: SquareTextStyleSettings[K],
+  ) {
+    setSettings((current) => {
+      if (current.outputMode === "square-card") {
+        return {
+          ...current,
+          squareCard: {
+            ...current.squareCard,
+            textStyle: { ...current.squareCard.textStyle, [key]: value },
+          },
+        };
+      }
+
+      return {
+        ...current,
+        text: { ...current.text, [key]: value },
+      };
+    });
   }
 
   function updateSquare<K extends keyof ComposerSettings["squareCard"]>(
@@ -297,6 +334,8 @@ export default function App() {
   }
 
   const isSquare = settings.outputMode === "square-card";
+  const activeTextStyle = isSquare ? settings.squareCard.textStyle : settings.text;
+  const activeLogo = isSquare ? settings.squareCard.logo : settings.logo;
 
   return (
     <div className="app-shell">
@@ -458,11 +497,48 @@ export default function App() {
                 ))}
               </div>
 
+              {settings.squareCard.fitMode === "cover" && (
+                <>
+                  <p className="section-label">ตำแหน่งการ Crop</p>
+                  <div className="segmented-grid three">
+                    {([
+                      ["left", "ซ้าย"],
+                      ["center", "กลาง"],
+                      ["right", "ขวา"],
+                    ] as [SquareImagePositionX, string][]).map(([position, label]) => (
+                      <button
+                        key={position}
+                        className={settings.squareCard.imagePositionX === position ? "active" : ""}
+                        onClick={() => updateSquare("imagePositionX", position)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="segmented-grid three">
+                    {([
+                      ["top", "บน"],
+                      ["center", "กลาง"],
+                      ["bottom", "ล่าง"],
+                    ] as [SquareImagePositionY, string][]).map(([position, label]) => (
+                      <button
+                        key={position}
+                        className={settings.squareCard.imagePositionY === position ? "active" : ""}
+                        onClick={() => updateSquare("imagePositionY", position)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
               <p className="section-label">พื้นหลังรอบภาพ</p>
-              <div className="segmented-grid three">
+              <div className="segmented-grid two">
                 {([
                   ["auto-gradient", "Auto Gradient"],
                   ["auto-solid", "Auto Solid"],
+                  ["blurred", "Blurred Photo"],
                   ["custom", "เลือกสี"],
                 ] as [SquareBackgroundMode, string][]).map(([mode, label]) => (
                   <button
@@ -506,7 +582,10 @@ export default function App() {
                 />
               )}
 
-              <p className="helper-note">สี Auto ดึงโทนจากภาพต้นฉบับแล้วทำให้นุ่มลงเพื่อให้เข้ากับสไตล์เพจ</p>
+              <p className="helper-note">
+                สี Auto ดึงโทนจากภาพต้นฉบับ · Blurred Photo ใช้ภาพเดิมขยายและเบลอเป็นพื้นหลัง
+                {settings.squareCard.fitMode === "cover" ? " (พื้นหลังจะถูกภาพ Cover บังเกือบทั้งหมด)" : ""}
+              </p>
             </section>
           ) : (
             <section className="control-card">
@@ -570,7 +649,9 @@ export default function App() {
             </label>
 
             {isSquare ? (
-              <p className="locked-note">Square Card ล็อกข้อความไว้ในพื้นที่ด้านล่าง และจะย่อขนาดอัตโนมัติเมื่อข้อความยาวเกินพื้นที่</p>
+              <p className="locked-note">
+                Square Card ล็อกข้อความไว้ในพื้นที่ด้านล่าง และจำขนาด/ความกว้าง/ระยะขอบแยกจาก Full Image
+              </p>
             ) : (
               <div className="segmented-grid three">
                 {TEXT_POSITION_OPTIONS.map((option) => (
@@ -591,30 +672,39 @@ export default function App() {
             <div className="compact-sliders">
               <RangeControl
                 label="ขนาดหัวเรื่อง"
-                value={settings.text.headlineSizePct}
+                value={activeTextStyle.headlineSizePct}
                 min={3.5}
                 max={9}
                 step={0.1}
                 suffix="%"
-                onChange={(value) => updateText("headlineSizePct", value)}
+                onChange={(value) => updateTextStyle("headlineSizePct", value)}
+              />
+              <RangeControl
+                label="ขนาดข้อความรอง"
+                value={activeTextStyle.subtextSizePct}
+                min={1.8}
+                max={5}
+                step={0.1}
+                suffix="%"
+                onChange={(value) => updateTextStyle("subtextSizePct", value)}
               />
               <RangeControl
                 label="ความกว้างข้อความ"
-                value={settings.text.widthPct}
+                value={activeTextStyle.widthPct}
                 min={42}
                 max={95}
                 step={1}
                 suffix="%"
-                onChange={(value) => updateText("widthPct", value)}
+                onChange={(value) => updateTextStyle("widthPct", value)}
               />
               <RangeControl
                 label="ระยะจากขอบ"
-                value={settings.text.paddingPct}
+                value={activeTextStyle.paddingPct}
                 min={2}
                 max={10}
                 step={0.25}
                 suffix="%"
-                onChange={(value) => updateText("paddingPct", value)}
+                onChange={(value) => updateTextStyle("paddingPct", value)}
               />
             </div>
           </section>
@@ -690,7 +780,11 @@ export default function App() {
             </div>
 
             <p className="logo-label">{logoLabel}</p>
-            {isSquare && <p className="helper-note">ใน Square Card โลโก้จะอยู่ภายในพื้นที่ภาพ ไม่ลงไปทับพื้นที่ข้อความ</p>}
+            {isSquare && (
+              <p className="helper-note">
+                Square Card จำตำแหน่ง/ขนาดโลโก้แยกจาก Full Image และยึดมุมของพื้นที่ภาพด้านบน
+              </p>
+            )}
 
             <div className="position-grid">
               {([
@@ -701,7 +795,7 @@ export default function App() {
               ] as [OverlayPosition, string][]).map(([position, icon]) => (
                 <button
                   key={position}
-                  className={settings.logo.position === position ? "active" : ""}
+                  className={activeLogo.position === position ? "active" : ""}
                   onClick={() => updateLogo("position", position)}
                   aria-label={position}
                 >
@@ -713,7 +807,7 @@ export default function App() {
             <div className="compact-sliders">
               <RangeControl
                 label="ขนาดโลโก้"
-                value={settings.logo.sizePct}
+                value={activeLogo.sizePct}
                 min={4}
                 max={24}
                 step={0.5}
@@ -722,7 +816,7 @@ export default function App() {
               />
               <RangeControl
                 label="ระยะจากขอบ"
-                value={settings.logo.marginPct}
+                value={activeLogo.marginPct}
                 min={0}
                 max={8}
                 step={0.25}
@@ -731,7 +825,7 @@ export default function App() {
               />
               <RangeControl
                 label="Opacity"
-                value={settings.logo.opacity}
+                value={activeLogo.opacity}
                 min={10}
                 max={100}
                 step={1}
