@@ -4,6 +4,7 @@ import {
   computeSquareLogoRect,
   computeSquareRegions,
   readableTextPalette,
+  SQUARE_MIN_SUBTEXT_SIZE_PCT,
 } from "./square-card";
 
 describe("square-card regions", () => {
@@ -73,6 +74,10 @@ describe("square-card logo anchoring", () => {
 });
 
 describe("square-card readable text", () => {
+  it("does not auto-shrink subtext below 1.8 percent of card width", () => {
+    expect(SQUARE_MIN_SUBTEXT_SIZE_PCT).toBe(1.8);
+  });
+
   it("uses dark earth-tone copy on a light panel", () => {
     expect(readableTextPalette("#F2E7D5")).toEqual({
       headline: "#2F332B",
