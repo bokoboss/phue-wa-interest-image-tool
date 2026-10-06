@@ -1,12 +1,17 @@
 import { DEFAULT_SETTINGS, type OverlaySettings, type Size } from "./overlay";
 
+export type OutputMode = "full-image" | "square-card";
 export type ImageOverlayStyle = "none" | "bottom-fade" | "top-fade" | "full-tint";
 export type TextPosition = "top-left" | "bottom-left" | "center";
 export type TextAlign = "left" | "center";
 export type ThemePresetId = "earth-cream" | "sage-clay" | "warm-clay";
 export type LayoutPresetId = "editorial-bottom" | "editorial-top" | "center-focus";
 export type FontPresetId = "kanit" | "prompt" | "ibm-plex-sans-thai" | "sarabun";
-export type ComposerSection = "layout" | "text" | "mood" | "logo";
+export type SquareOutputSize = 1080 | 2048;
+export type SquareFitMode = "contain" | "cover";
+export type SquareBackgroundMode = "auto-gradient" | "auto-solid" | "custom";
+export type SquarePanelMode = "auto" | "theme" | "custom";
+export type ComposerSection = "output" | "square" | "layout" | "text" | "mood" | "logo";
 
 export interface ImageOverlaySettings {
   style: ImageOverlayStyle;
@@ -25,13 +30,34 @@ export interface TextSettings {
   fontPreset: FontPresetId;
 }
 
+export interface SquareCardSettings {
+  outputSize: SquareOutputSize;
+  imageAreaPct: number;
+  fitMode: SquareFitMode;
+  backgroundMode: SquareBackgroundMode;
+  customBackgroundColor: string;
+  panelMode: SquarePanelMode;
+  customPanelColor: string;
+}
+
 export interface ComposerSettings {
+  outputMode: OutputMode;
   layoutPreset: LayoutPresetId;
   themePreset: ThemePresetId;
   overlay: ImageOverlaySettings;
   text: TextSettings;
   logo: OverlaySettings;
+  squareCard: SquareCardSettings;
 }
+
+export type ComposerSettingsInput = Partial<
+  Omit<ComposerSettings, "overlay" | "text" | "logo" | "squareCard">
+> & {
+  overlay?: Partial<ImageOverlaySettings>;
+  text?: Partial<TextSettings>;
+  logo?: Partial<OverlaySettings>;
+  squareCard?: Partial<SquareCardSettings>;
+};
 
 export interface ThemePreset {
   label: string;
@@ -108,6 +134,7 @@ export const THEME_PRESETS: Record<ThemePresetId, ThemePreset> = {
 };
 
 export const DEFAULT_COMPOSER_SETTINGS: ComposerSettings = {
+  outputMode: "full-image",
   layoutPreset: "editorial-bottom",
   themePreset: "earth-cream",
   overlay: {
@@ -132,18 +159,37 @@ export const DEFAULT_COMPOSER_SETTINGS: ComposerSettings = {
     opacity: 92,
     position: "bottom-right",
   },
+  squareCard: {
+    outputSize: 1080,
+    imageAreaPct: 68,
+    fitMode: "contain",
+    backgroundMode: "auto-gradient",
+    customBackgroundColor: "#D8C7AF",
+    panelMode: "auto",
+    customPanelColor: "#F4EBDD",
+  },
 };
 
 export function mergeComposerSettings(
-  input?: Partial<ComposerSettings>,
+  input?: ComposerSettingsInput,
 ): ComposerSettings {
-  const text = {
+  const text: TextSettings = {
     ...DEFAULT_COMPOSER_SETTINGS.text,
     ...input?.text,
   };
 
   if (!text.fontPreset || !(text.fontPreset in FONT_PRESETS)) {
     text.fontPreset = "kanit";
+  }
+
+  const squareCard: SquareCardSettings = {
+    ...DEFAULT_COMPOSER_SETTINGS.squareCard,
+    ...input?.squareCard,
+  };
+
+  squareCard.imageAreaPct = Math.max(55, Math.min(80, squareCard.imageAreaPct));
+  if (squareCard.outputSize !== 1080 && squareCard.outputSize !== 2048) {
+    squareCard.outputSize = 1080;
   }
 
   return {
@@ -158,11 +204,12 @@ export function mergeComposerSettings(
       ...DEFAULT_COMPOSER_SETTINGS.logo,
       ...input?.logo,
     },
+    squareCard,
   };
 }
 
 export function migrateV2ComposerSettings(
-  input: Partial<ComposerSettings>,
+  input: ComposerSettingsInput,
 ): ComposerSettings {
   const migrated = mergeComposerSettings(input);
   const oldPresetOpacity: Record<LayoutPresetId, number> = {
@@ -234,6 +281,20 @@ export function resetComposerSection(
   section: ComposerSection,
 ): ComposerSettings {
   const current = mergeComposerSettings(settings);
+
+  if (section === "output") {
+    return {
+      ...current,
+      outputMode: DEFAULT_COMPOSER_SETTINGS.outputMode,
+    };
+  }
+
+  if (section === "square") {
+    return {
+      ...current,
+      squareCard: { ...DEFAULT_COMPOSER_SETTINGS.squareCard },
+    };
+  }
 
   if (section === "layout") {
     return applyLayoutPreset(current, DEFAULT_COMPOSER_SETTINGS.layoutPreset);

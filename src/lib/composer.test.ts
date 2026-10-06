@@ -6,6 +6,7 @@ import {
   THEME_PRESETS,
   applyLayoutPreset,
   computeTextBox,
+  mergeComposerSettings,
   migrateV2ComposerSettings,
   resetComposerSection,
 } from "./composer";
@@ -29,6 +30,31 @@ describe("v0.2.1 defaults", () => {
       "ibm-plex-sans-thai",
       "sarabun",
     ]);
+  });
+});
+
+describe("v0.3 square-card defaults", () => {
+  it("keeps full-image as the existing default and ships a ready square-card preset", () => {
+    expect(DEFAULT_COMPOSER_SETTINGS.outputMode).toBe("full-image");
+    expect(DEFAULT_COMPOSER_SETTINGS.squareCard).toEqual({
+      outputSize: 1080,
+      imageAreaPct: 68,
+      fitMode: "contain",
+      backgroundMode: "auto-gradient",
+      customBackgroundColor: "#D8C7AF",
+      panelMode: "auto",
+      customPanelColor: "#F4EBDD",
+    });
+  });
+
+  it("backfills square-card settings when older stored settings are loaded", () => {
+    const merged = mergeComposerSettings({
+      layoutPreset: "editorial-top",
+    });
+
+    expect(merged.outputMode).toBe("full-image");
+    expect(merged.squareCard.outputSize).toBe(1080);
+    expect(merged.squareCard.fitMode).toBe("contain");
   });
 });
 
@@ -158,6 +184,29 @@ describe("section resets", () => {
     expect(reset.text).toEqual(customized.text);
     expect(reset.overlay).toEqual(customized.overlay);
     expect(reset.themePreset).toBe("warm-clay");
+  });
+
+  it("resets square-card controls without changing the selected output mode", () => {
+    const reset = resetComposerSection(
+      {
+        ...customized,
+        outputMode: "square-card",
+        squareCard: {
+          outputSize: 2048,
+          imageAreaPct: 76,
+          fitMode: "cover",
+          backgroundMode: "custom",
+          customBackgroundColor: "#112233",
+          panelMode: "custom",
+          customPanelColor: "#445566",
+        },
+      },
+      "square",
+    );
+
+    expect(reset.outputMode).toBe("square-card");
+    expect(reset.squareCard).toEqual(DEFAULT_COMPOSER_SETTINGS.squareCard);
+    expect(reset.text.headline).toBe("หัวเรื่องที่กำลังเขียน");
   });
 });
 

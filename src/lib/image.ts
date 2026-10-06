@@ -7,6 +7,15 @@ import {
   type FontPresetId,
 } from "./composer";
 import { computeOverlayRect } from "./overlay";
+import {
+  computeImagePlacement,
+  computeSquareRegions,
+  deriveAutoSquarePalette,
+  mixHexColors,
+  normalizeHexColor,
+  readableTextPalette,
+  type Rect,
+} from "./square-card";
 
 export async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
@@ -37,6 +46,19 @@ export async function drawPreview(
 ): Promise<void> {
   await ensureComposerFont(settings.text.fontPreset);
 
+  if (settings.outputMode === "square-card") {
+    const size = Math.max(1, Math.floor(Math.min(maxWidth, maxHeight, 900)));
+    canvas.width = size;
+    canvas.height = size;
+
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas 2D context is unavailable.");
+
+    context.clearRect(0, 0, size, size);
+    drawSquareCard(context, source, logo, settings, size);
+    return;
+  }
+
   const scale = Math.min(maxWidth / source.naturalWidth, maxHeight / source.naturalHeight, 1);
   const width = Math.max(1, Math.round(source.naturalWidth * scale));
   const height = Math.max(1, Math.round(source.naturalHeight * scale));
@@ -49,7 +71,7 @@ export async function drawPreview(
 
   context.clearRect(0, 0, width, height);
   context.drawImage(source, 0, 0, width, height);
-  drawComposition(context, width, height, logo, settings);
+  drawFullComposition(context, width, height, logo, settings);
 }
 
 export async function renderComposedBlob(
@@ -59,9 +81,25 @@ export async function renderComposedBlob(
 ): Promise<{ blob: Blob; mime: string; width: number; height: number }> {
   const source = await loadImageFromFile(file);
   await ensureComposerFont(settings.text.fontPreset);
+
+  if (settings.outputMode === "square-card") {
+    const size = settings.squareCard.outputSize;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas 2D context is unavailable.");
+
+    drawSquareCard(context, source, logo, settings, size);
+
+    const mime = "image/jpeg";
+    const blob = await canvasToBlob(canvas, mime, 0.95);
+    return { blob, mime, width: size, height: size };
+  }
+
   const width = source.naturalWidth;
   const height = source.naturalHeight;
-
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -70,7 +108,7 @@ export async function renderComposedBlob(
   if (!context) throw new Error("Canvas 2D context is unavailable.");
 
   context.drawImage(source, 0, 0, width, height);
-  drawComposition(context, width, height, logo, settings);
+  drawFullComposition(context, width, height, logo, settings);
 
   const mime = preferredOutputMime(file.type);
   const quality = mime === "image/jpeg" || mime === "image/webp" ? 0.95 : undefined;
@@ -79,7 +117,7 @@ export async function renderComposedBlob(
   return { blob, mime, width, height };
 }
 
-function drawComposition(
+function drawFullComposition(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
@@ -90,17 +128,284 @@ function drawComposition(
   drawTextBlock(context, width, height, settings);
 
   if (!logo) return;
+  drawLogoInRect(context, logo, { x: 0, y: 0, width, height }, settings);
+}
+
+function drawSquareCard(
+  context: CanvasRenderingContext2D,
+  source: HTMLImageElement,
+  logo: HTMLImageElement | null,
+  settings: ComposerSettings,
+  size: number,
+): void {
+  const regions = computeSquareRegions(size, settings.squareCard.imageAreaPct);
+  const sourcePalette = sampleSourcePalette(source);
+  const auto = deriveAutoSquarePalette(sourcePalette.primary, sourcePalette.secondary);
+  const theme = THEME_PRESETS[settings.themePreset] ?? THEME_PRESETS["earth-cream"];
+
+  drawSquareImageBackground(context, regions.image, settings, auto);
+  const placement = computeImagePlacement(
+    { width: source.naturalWidth, height: source.naturalHeight },
+    regions.image,
+    settings.squareCard.fitMode,
+  );
+
+  context.save();
+  context.beginPath();
+  context.rect(regions.image.x, regions.image.y, regions.image.width, regions.image.height);
+  context.clip();
+
+  if (settings.squareCard.fitMode === "contain") {
+    context.shadowColor = "rgba(29, 31, 27, 0.22)";
+    context.shadowBlur = Math.max(3, size * 0.012);
+    context.shadowOffsetY = Math.max(1, size * 0.004);
+  }
+
+  context.drawImage(source, placement.x, placement.y, placement.width, placement.height);
+  context.restore();
+
+  const panelColor = resolvePanelColor(settings, auto.panel, theme.subtextColor);
+  context.fillStyle = panelColor;
+  context.fillRect(regions.text.x, regions.text.y, regions.text.width, regions.text.height);
+
+  context.fillStyle = mixHexColors(panelColor, theme.accentColor, 0.24);
+  context.fillRect(regions.text.x, regions.text.y, regions.text.width, Math.max(1, size * 0.002));
+
+  if (logo) {
+    const anchor =
+      settings.squareCard.fitMode === "contain"
+        ? intersectionRect(placement, regions.image)
+        : regions.image;
+    drawLogoInRect(context, logo, anchor, settings);
+  }
+
+  drawSquarePanelText(context, regions.text, panelColor, settings);
+}
+
+function drawSquareImageBackground(
+  context: CanvasRenderingContext2D,
+  area: Rect,
+  settings: ComposerSettings,
+  auto: ReturnType<typeof deriveAutoSquarePalette>,
+): void {
+  if (settings.squareCard.backgroundMode === "custom") {
+    context.fillStyle = normalizeHexColor(settings.squareCard.customBackgroundColor);
+    context.fillRect(area.x, area.y, area.width, area.height);
+    return;
+  }
+
+  if (settings.squareCard.backgroundMode === "auto-solid") {
+    context.fillStyle = auto.solid;
+    context.fillRect(area.x, area.y, area.width, area.height);
+    return;
+  }
+
+  const gradient = context.createLinearGradient(
+    area.x,
+    area.y,
+    area.x + area.width,
+    area.y + area.height,
+  );
+  gradient.addColorStop(0, auto.imageStart);
+  gradient.addColorStop(0.58, auto.solid);
+  gradient.addColorStop(1, auto.imageEnd);
+  context.fillStyle = gradient;
+  context.fillRect(area.x, area.y, area.width, area.height);
+}
+
+function resolvePanelColor(
+  settings: ComposerSettings,
+  autoPanel: string,
+  themeBase: string,
+): string {
+  if (settings.squareCard.panelMode === "custom") {
+    return normalizeHexColor(settings.squareCard.customPanelColor, "#F4EBDD");
+  }
+  if (settings.squareCard.panelMode === "theme") {
+    return mixHexColors(themeBase, "#FFFFFF", 0.48);
+  }
+  return autoPanel;
+}
+
+function drawLogoInRect(
+  context: CanvasRenderingContext2D,
+  logo: HTMLImageElement,
+  anchor: Rect,
+  settings: ComposerSettings,
+): void {
+  if (anchor.width <= 0 || anchor.height <= 0) return;
 
   const rect = computeOverlayRect(
-    { width, height },
+    { width: anchor.width, height: anchor.height },
     { width: logo.naturalWidth, height: logo.naturalHeight },
     settings.logo,
   );
 
   context.save();
   context.globalAlpha = settings.logo.opacity / 100;
-  context.drawImage(logo, rect.x, rect.y, rect.width, rect.height);
+  context.drawImage(
+    logo,
+    anchor.x + rect.x,
+    anchor.y + rect.y,
+    rect.width,
+    rect.height,
+  );
   context.restore();
+}
+
+function drawSquarePanelText(
+  context: CanvasRenderingContext2D,
+  panel: Rect,
+  panelColor: string,
+  settings: ComposerSettings,
+): void {
+  const headline = settings.text.headline.trim();
+  const subtext = settings.text.subtext.trim();
+  if (!headline && !subtext) return;
+
+  const theme = THEME_PRESETS[settings.themePreset] ?? THEME_PRESETS["earth-cream"];
+  const font = FONT_PRESETS[settings.text.fontPreset] ?? FONT_PRESETS.kanit;
+  const colors = readableTextPalette(panelColor);
+  const padding = Math.min(
+    panel.width * Math.max(0.035, settings.text.paddingPct / 100),
+    panel.height * 0.22,
+  );
+  const maxWidth = Math.min(
+    panel.width - padding * 2,
+    panel.width * (Math.max(58, settings.text.widthPct) / 100),
+  );
+  const availableHeight = Math.max(1, panel.height - padding * 2);
+
+  let headlineSize = Math.max(18, panel.width * (settings.text.headlineSizePct / 100));
+  let subtextSize = Math.max(13, panel.width * (settings.text.subtextSizePct / 100));
+  const minHeadline = panel.width * 0.027;
+  const minSubtext = panel.width * 0.0145;
+
+  let layout = measurePanelCopy(
+    context,
+    headline,
+    subtext,
+    maxWidth,
+    headlineSize,
+    subtextSize,
+    font.canvasStack,
+    panel.width,
+  );
+
+  let guard = 0;
+  while (layout.totalHeight > availableHeight && guard < 24) {
+    headlineSize = Math.max(minHeadline, headlineSize * 0.955);
+    subtextSize = Math.max(minSubtext, subtextSize * 0.955);
+    layout = measurePanelCopy(
+      context,
+      headline,
+      subtext,
+      maxWidth,
+      headlineSize,
+      subtextSize,
+      font.canvasStack,
+      panel.width,
+    );
+    guard += 1;
+    if (headlineSize <= minHeadline && subtextSize <= minSubtext) break;
+  }
+
+  const headlineLines = [...layout.headlineLines];
+  const subtextLines = [...layout.subtextLines];
+  let totalHeight = layout.totalHeight;
+
+  while (totalHeight > availableHeight && subtextLines.length > 1) {
+    subtextLines.pop();
+    subtextLines[subtextLines.length - 1] = addEllipsis(subtextLines[subtextLines.length - 1]);
+    totalHeight -= layout.subtextLineHeight;
+  }
+
+  while (totalHeight > availableHeight && headlineLines.length > 1) {
+    headlineLines.pop();
+    headlineLines[headlineLines.length - 1] = addEllipsis(headlineLines[headlineLines.length - 1]);
+    totalHeight -= layout.headlineLineHeight;
+  }
+
+  const contentHeight = Math.min(totalHeight, availableHeight);
+  let y = panel.y + (panel.height - contentHeight) / 2;
+  const x = panel.x + padding;
+  const ruleThickness = Math.max(2, panel.width * 0.003);
+  const ruleWidth = Math.max(30, panel.width * 0.065);
+  const ruleGap = panel.width * 0.014;
+
+  context.save();
+  context.beginPath();
+  context.rect(panel.x, panel.y, panel.width, panel.height);
+  context.clip();
+  context.textAlign = "left";
+  context.textBaseline = "top";
+
+  context.fillStyle = theme.accentColor;
+  context.fillRect(x, y, ruleWidth, ruleThickness);
+  y += ruleThickness + ruleGap;
+
+  if (headlineLines.length) {
+    context.font = `700 ${headlineSize}px ${font.canvasStack}`;
+    context.fillStyle = colors.headline;
+    for (const line of headlineLines) {
+      context.fillText(line, x, y, maxWidth);
+      y += layout.headlineLineHeight;
+    }
+  }
+
+  if (headlineLines.length && subtextLines.length) y += layout.blockGap;
+
+  if (subtextLines.length) {
+    context.font = `400 ${subtextSize}px ${font.canvasStack}`;
+    context.fillStyle = colors.subtext;
+    for (const line of subtextLines) {
+      context.fillText(line, x, y, maxWidth);
+      y += layout.subtextLineHeight;
+    }
+  }
+
+  context.restore();
+}
+
+function measurePanelCopy(
+  context: CanvasRenderingContext2D,
+  headline: string,
+  subtext: string,
+  maxWidth: number,
+  headlineSize: number,
+  subtextSize: number,
+  fontStack: string,
+  canvasWidth: number,
+): {
+  headlineLines: string[];
+  subtextLines: string[];
+  headlineLineHeight: number;
+  subtextLineHeight: number;
+  blockGap: number;
+  totalHeight: number;
+} {
+  const headlineLineHeight = headlineSize * 1.16;
+  const subtextLineHeight = subtextSize * 1.38;
+  const blockGap = headline && subtext ? canvasWidth * 0.016 : 0;
+  const ruleHeight = Math.max(2, canvasWidth * 0.003) + canvasWidth * 0.014;
+
+  context.font = `700 ${headlineSize}px ${fontStack}`;
+  const headlineLines = headline ? wrapText(context, headline, maxWidth) : [];
+  context.font = `400 ${subtextSize}px ${fontStack}`;
+  const subtextLines = subtext ? wrapText(context, subtext, maxWidth) : [];
+
+  return {
+    headlineLines,
+    subtextLines,
+    headlineLineHeight,
+    subtextLineHeight,
+    blockGap,
+    totalHeight:
+      ruleHeight +
+      headlineLines.length * headlineLineHeight +
+      blockGap +
+      subtextLines.length * subtextLineHeight,
+  };
 }
 
 function drawImageOverlay(
@@ -271,6 +576,71 @@ function wrapText(
   }
 
   return result;
+}
+
+function sampleSourcePalette(image: HTMLImageElement): {
+  primary: string;
+  secondary: string;
+} {
+  const canvas = document.createElement("canvas");
+  const size = 40;
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return { primary: "#8D9277", secondary: "#B66A4D" };
+
+  context.drawImage(image, 0, 0, size, size);
+  const pixels = context.getImageData(0, 0, size, size).data;
+  const left = { r: 0, g: 0, b: 0, count: 0 };
+  const right = { r: 0, g: 0, b: 0, count: 0 };
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const index = (y * size + x) * 4;
+      if (pixels[index + 3] < 96) continue;
+
+      const target = x < size / 2 ? left : right;
+      target.r += pixels[index];
+      target.g += pixels[index + 1];
+      target.b += pixels[index + 2];
+      target.count += 1;
+    }
+  }
+
+  return {
+    primary: averageBucket(left, "#8D9277"),
+    secondary: averageBucket(right, "#B66A4D"),
+  };
+}
+
+function averageBucket(
+  bucket: { r: number; g: number; b: number; count: number },
+  fallback: string,
+): string {
+  if (!bucket.count) return fallback;
+  const channels = [bucket.r, bucket.g, bucket.b].map((sum) =>
+    Math.round(sum / bucket.count).toString(16).padStart(2, "0"),
+  );
+  return `#${channels.join("").toUpperCase()}`;
+}
+
+function intersectionRect(a: Rect, b: Rect): Rect {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+
+  return {
+    x,
+    y,
+    width: Math.max(0, right - x),
+    height: Math.max(0, bottom - y),
+  };
+}
+
+function addEllipsis(line: string): string {
+  const trimmed = line.replace(/[…\.]+$/u, "").trimEnd();
+  return trimmed ? `${trimmed}…` : "…";
 }
 
 async function ensureComposerFont(fontPreset: FontPresetId): Promise<void> {
