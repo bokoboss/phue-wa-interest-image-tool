@@ -9,8 +9,14 @@ describe("square-card regions", () => {
   it("locks the default split to a 68/32 image/text composition", () => {
     const regions = computeSquareRegions(1080, 68);
 
-    expect(regions.image).toEqual({ x: 0, y: 0, width: 1080, height: 734.4 });
-    expect(regions.text).toEqual({ x: 0, y: 734.4, width: 1080, height: 345.6 });
+    expect(regions.image.x).toBe(0);
+    expect(regions.image.y).toBe(0);
+    expect(regions.image.width).toBe(1080);
+    expect(regions.image.height).toBeCloseTo(734.4);
+    expect(regions.text.x).toBe(0);
+    expect(regions.text.y).toBeCloseTo(734.4);
+    expect(regions.text.width).toBe(1080);
+    expect(regions.text.height).toBeCloseTo(345.6);
   });
 
   it("clamps unsafe ratios so both regions remain usable", () => {
