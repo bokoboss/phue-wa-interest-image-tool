@@ -15,6 +15,7 @@ import {
   mixHexColors,
   normalizeHexColor,
   readableTextPalette,
+  SQUARE_MIN_SUBTEXT_SIZE_PCT,
   type Rect,
 } from "./square-card";
 
@@ -285,7 +286,7 @@ function drawSquarePanelText(
   let headlineSize = Math.max(18, panel.width * (settings.text.headlineSizePct / 100));
   let subtextSize = Math.max(13, panel.width * (settings.text.subtextSizePct / 100));
   const minHeadline = panel.width * 0.027;
-  const minSubtext = panel.width * 0.0145;
+  const minSubtext = panel.width * (SQUARE_MIN_SUBTEXT_SIZE_PCT / 100);
 
   let layout = measurePanelCopy(
     context,

@@ -31,6 +31,24 @@ describe("v0.2.1 defaults", () => {
       "sarabun",
     ]);
   });
+
+  it("uses a more readable 2.8 percent default for subtext", () => {
+    expect(DEFAULT_COMPOSER_SETTINGS.text.subtextSizePct).toBe(2.8);
+  });
+
+  it("upgrades the previous 2.25 percent subtext default while preserving custom values", () => {
+    expect(
+      mergeComposerSettings({
+        text: { subtextSizePct: 2.25 },
+      }).text.subtextSizePct,
+    ).toBe(2.8);
+
+    expect(
+      mergeComposerSettings({
+        text: { subtextSizePct: 3.1 },
+      }).text.subtextSizePct,
+    ).toBe(3.1);
+  });
 });
 
 describe("v0.3 square-card defaults", () => {

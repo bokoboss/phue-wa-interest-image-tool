@@ -2,6 +2,13 @@
 
 Mini web app สำหรับเตรียมภาพก่อนโพสต์ Facebook ของเพจ “เผื่อว่าน่าสนใจ” โดยประมวลผลทั้งหมดใน browser ของผู้ใช้
 
+## v0.3.2 — Subtext readability
+
+- เพิ่ม default Subtext จาก 2.25% เป็น 2.8%
+- ค่า 2.25% เดิมที่ถูกเก็บไว้จะ migrate เป็น 2.8% อัตโนมัติ
+- Square Card ไม่ auto-shrink Subtext ต่ำกว่า 1.8% ของความกว้าง card
+- ค่าที่ผู้ใช้ตั้งเองซึ่งไม่ใช่ 2.25% จะถูกเก็บไว้ตามเดิม
+
 ## v0.3 — Square Card 1:1
 
 เพิ่ม output mode ใหม่โดยยังคง Full Image mode เดิมไว้ครบ:
