@@ -58,10 +58,24 @@ describe("v0.3 square-card defaults", () => {
       outputSize: 1080,
       imageAreaPct: 68,
       fitMode: "contain",
+      imagePositionX: "center",
+      imagePositionY: "center",
       backgroundMode: "auto-gradient",
       customBackgroundColor: "#D8C7AF",
       panelMode: "auto",
       customPanelColor: "#F4EBDD",
+      textStyle: {
+        widthPct: 65,
+        paddingPct: 5,
+        headlineSizePct: 5.6,
+        subtextSizePct: 2.8,
+      },
+      logo: {
+        position: "bottom-right",
+        sizePct: 9,
+        marginPct: 2.5,
+        opacity: 92,
+      },
     });
   });
 
@@ -73,6 +87,83 @@ describe("v0.3 square-card defaults", () => {
     expect(merged.outputMode).toBe("full-image");
     expect(merged.squareCard.outputSize).toBe(1080);
     expect(merged.squareCard.fitMode).toBe("contain");
+  });
+
+  it("migrates the existing shared typography and logo into square-specific style once", () => {
+    const merged = mergeComposerSettings({
+      text: {
+        headlineSizePct: 7.1,
+        subtextSizePct: 3.4,
+        widthPct: 81,
+        paddingPct: 7,
+      },
+      logo: {
+        position: "top-left",
+        sizePct: 14,
+        marginPct: 4,
+        opacity: 77,
+      },
+    });
+
+    expect(merged.text.headlineSizePct).toBe(7.1);
+    expect(merged.squareCard.textStyle).toEqual({
+      headlineSizePct: 7.1,
+      subtextSizePct: 3.4,
+      widthPct: 81,
+      paddingPct: 7,
+    });
+    expect(merged.squareCard.logo).toEqual({
+      position: "top-left",
+      sizePct: 14,
+      marginPct: 4,
+      opacity: 77,
+    });
+  });
+
+  it("preserves independent square-specific typography and logo once present", () => {
+    const merged = mergeComposerSettings({
+      text: {
+        headlineSizePct: 6.2,
+        subtextSizePct: 2.9,
+      },
+      logo: {
+        position: "bottom-left",
+        sizePct: 10,
+      },
+      squareCard: {
+        textStyle: {
+          headlineSizePct: 4.8,
+          subtextSizePct: 3.2,
+          widthPct: 74,
+          paddingPct: 6,
+        },
+        logo: {
+          position: "top-right",
+          sizePct: 12,
+          marginPct: 3,
+          opacity: 88,
+        },
+      },
+    });
+
+    expect(merged.text.headlineSizePct).toBe(6.2);
+    expect(merged.squareCard.textStyle.headlineSizePct).toBe(4.8);
+    expect(merged.logo.position).toBe("bottom-left");
+    expect(merged.squareCard.logo.position).toBe("top-right");
+  });
+
+  it("accepts blurred background and cover crop positioning", () => {
+    const merged = mergeComposerSettings({
+      squareCard: {
+        backgroundMode: "blurred",
+        imagePositionX: "right",
+        imagePositionY: "top",
+      },
+    });
+
+    expect(merged.squareCard.backgroundMode).toBe("blurred");
+    expect(merged.squareCard.imagePositionX).toBe("right");
+    expect(merged.squareCard.imagePositionY).toBe("top");
   });
 });
 
@@ -210,13 +301,28 @@ describe("section resets", () => {
         ...customized,
         outputMode: "square-card",
         squareCard: {
+          ...DEFAULT_COMPOSER_SETTINGS.squareCard,
           outputSize: 2048,
           imageAreaPct: 76,
           fitMode: "cover",
+          imagePositionX: "right",
+          imagePositionY: "top",
           backgroundMode: "custom",
           customBackgroundColor: "#112233",
           panelMode: "custom",
           customPanelColor: "#445566",
+          textStyle: {
+            widthPct: 79,
+            paddingPct: 7,
+            headlineSizePct: 4.9,
+            subtextSizePct: 3.3,
+          },
+          logo: {
+            position: "top-right",
+            sizePct: 13,
+            marginPct: 4,
+            opacity: 81,
+          },
         },
       },
       "square",
@@ -225,6 +331,52 @@ describe("section resets", () => {
     expect(reset.outputMode).toBe("square-card");
     expect(reset.squareCard).toEqual(DEFAULT_COMPOSER_SETTINGS.squareCard);
     expect(reset.text.headline).toBe("หัวเรื่องที่กำลังเขียน");
+  });
+
+  it("resets text styling only for the active mode while clearing shared copy", () => {
+    const square = resetComposerSection(
+      {
+        ...customized,
+        outputMode: "square-card",
+        squareCard: {
+          ...DEFAULT_COMPOSER_SETTINGS.squareCard,
+          textStyle: {
+            widthPct: 88,
+            paddingPct: 8,
+            headlineSizePct: 7,
+            subtextSizePct: 4,
+          },
+        },
+      },
+      "text",
+    );
+
+    expect(square.text.headline).toBe("");
+    expect(square.text.subtext).toBe("");
+    expect(square.text.headlineSizePct).toBe(7.2);
+    expect(square.squareCard.textStyle).toEqual(DEFAULT_COMPOSER_SETTINGS.squareCard.textStyle);
+  });
+
+  it("resets logo only for the active mode", () => {
+    const square = resetComposerSection(
+      {
+        ...customized,
+        outputMode: "square-card",
+        squareCard: {
+          ...DEFAULT_COMPOSER_SETTINGS.squareCard,
+          logo: {
+            position: "top-left",
+            sizePct: 18,
+            marginPct: 6,
+            opacity: 60,
+          },
+        },
+      },
+      "logo",
+    );
+
+    expect(square.logo).toEqual(customized.logo);
+    expect(square.squareCard.logo).toEqual(DEFAULT_COMPOSER_SETTINGS.squareCard.logo);
   });
 });
 
