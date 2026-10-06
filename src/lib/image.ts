@@ -9,6 +9,7 @@ import {
 import { computeOverlayRect } from "./overlay";
 import {
   computeImagePlacement,
+  computeSquareLogoRect,
   computeSquareRegions,
   deriveAutoSquarePalette,
   mixHexColors,
@@ -172,11 +173,16 @@ function drawSquareCard(
   context.fillRect(regions.text.x, regions.text.y, regions.text.width, Math.max(1, size * 0.002));
 
   if (logo) {
-    const anchor =
-      settings.squareCard.fitMode === "contain"
-        ? intersectionRect(placement, regions.image)
-        : regions.image;
-    drawLogoInRect(context, logo, anchor, settings);
+    const logoRect = computeSquareLogoRect(
+      regions.image,
+      { width: logo.naturalWidth, height: logo.naturalHeight },
+      settings.logo,
+    );
+
+    context.save();
+    context.globalAlpha = settings.logo.opacity / 100;
+    context.drawImage(logo, logoRect.x, logoRect.y, logoRect.width, logoRect.height);
+    context.restore();
   }
 
   drawSquarePanelText(context, regions.text, panelColor, settings);
@@ -624,19 +630,6 @@ function averageBucket(
   return `#${channels.join("").toUpperCase()}`;
 }
 
-function intersectionRect(a: Rect, b: Rect): Rect {
-  const x = Math.max(a.x, b.x);
-  const y = Math.max(a.y, b.y);
-  const right = Math.min(a.x + a.width, b.x + b.width);
-  const bottom = Math.min(a.y + a.height, b.y + b.height);
-
-  return {
-    x,
-    y,
-    width: Math.max(0, right - x),
-    height: Math.max(0, bottom - y),
-  };
-}
 
 function addEllipsis(line: string): string {
   const trimmed = line.replace(/[…\.]+$/u, "").trimEnd();

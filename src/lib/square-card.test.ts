@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeImagePlacement,
+  computeSquareLogoRect,
   computeSquareRegions,
   readableTextPalette,
 } from "./square-card";
@@ -52,6 +53,22 @@ describe("square-card image placement", () => {
     expect(rect.height).toBeCloseTo(734.4);
     expect(rect.width).toBeCloseTo(1305.6);
     expect(rect.x).toBeCloseTo(-112.8);
+  });
+});
+
+describe("square-card logo anchoring", () => {
+  it("anchors the logo to the full image region rather than the contained source image", () => {
+    const imageArea = { x: 0, y: 0, width: 1080, height: 734.4 };
+    const rect = computeSquareLogoRect(
+      imageArea,
+      { width: 500, height: 500 },
+      { position: "top-right", sizePct: 9, marginPct: 2.5, opacity: 92 },
+    );
+
+    expect(rect.x).toBeCloseTo(955.8);
+    expect(rect.y).toBeCloseTo(27);
+    expect(rect.width).toBeCloseTo(97.2);
+    expect(rect.height).toBeCloseTo(97.2);
   });
 });
 
