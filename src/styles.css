@@ -649,6 +649,12 @@ h1 {
 
 .full { width: 100%; }
 
+.logo-picker-label {
+  display: block;
+  text-align: center;
+  cursor: pointer;
+}
+
 .reset-button {
   width: 100%;
   border: 1px dashed #c8c1b0;
