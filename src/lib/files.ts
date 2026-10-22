@@ -22,6 +22,9 @@ export function downloadBlob(blob: Blob, filename: string): void {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
+  document.body.appendChild(anchor);
   anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  anchor.remove();
+  // A longer lifetime accommodates slower downloads on mobile browsers.
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
