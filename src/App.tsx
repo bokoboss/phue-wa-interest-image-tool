@@ -106,7 +106,6 @@ export default function App() {
   const [importStatus, setImportStatus] = useState("");
   const [readyExport, setReadyExport] = useState<ReadyExport | null>(null);
   const readyExportRef = useRef<ReadyExport | null>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const selected = useMemo(
@@ -915,12 +914,12 @@ export default function App() {
               />
             </div>
 
-            <button className="secondary-button full" onClick={() => logoInputRef.current?.click()}>
+            <label className="secondary-button full logo-picker-label" htmlFor="logo-image-input">
               เลือกโลโก้อื่น
-            </button>
+            </label>
             <input
-              ref={logoInputRef}
-              className="hidden-input"
+              id="logo-image-input"
+              className="visually-hidden-input"
               type="file"
               accept="image/png,image/jpeg,image/webp"
               onChange={(event) => {
