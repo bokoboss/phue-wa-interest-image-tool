@@ -45,7 +45,6 @@ type ReadyExport = {
   kind: "image" | "zip";
 };
 
-const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const STORAGE_KEY = "phue-wa-image-tool-settings-v3";
 const V2_STORAGE_KEY = "phue-wa-image-tool-settings-v2";
 const LEGACY_STORAGE_KEY = "phue-wa-image-tool-settings-v1";
