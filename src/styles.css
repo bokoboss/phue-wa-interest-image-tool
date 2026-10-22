@@ -183,6 +183,7 @@ h1 {
 .mini-actions { display: flex; gap: 5px; }
 
 .mini-actions button,
+.mini-actions .add-image-label,
 .reset-button {
   border: 0;
   background: transparent;
@@ -190,6 +191,23 @@ h1 {
   cursor: pointer;
   font-size: 12px;
   padding: 6px 8px;
+}
+
+.mini-actions .add-image-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.import-status {
+  margin: 12px 4px 0;
+  border: 1px solid #dfc8a8;
+  border-radius: 9px;
+  padding: 10px 12px;
+  background: #fff8ea;
+  color: #795332;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .image-strip {
@@ -685,6 +703,56 @@ h1 {
 }
 
 .hidden-input { display: none; }
+
+/* Keep the source image input available to native mobile file-picker activation. */
+.visually-hidden-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.export-ready {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.save-file-link,
+.share-file-button {
+  display: block;
+  width: 100%;
+  border-radius: 11px;
+  border: 1px solid #d7c9aa;
+  padding: 11px 13px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.save-file-link {
+  background: #f1e9d5;
+  color: #34382e;
+}
+
+.share-file-button {
+  background: #445544;
+  color: #fff9ee;
+}
+
+.export-card .save-help {
+  margin: 0;
+  color: #cdd1bf;
+  font-size: 11px;
+  line-height: 1.45;
+}
 
 footer {
   display: flex;
