@@ -43,7 +43,8 @@ describe("image URL lifetime during canvas rendering", () => {
     });
 
     expect(output).toBe("exported");
-    expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:photo-picker-image");
+    expect(revoke).toHaveBeenCalledTimes(1);
+    expect(revoke).toHaveBeenCalledWith("blob:photo-picker-image");
   });
 
   it("also releases the URL if the renderer fails", async () => {
@@ -54,6 +55,7 @@ describe("image URL lifetime during canvas rendering", () => {
         async () => { throw new Error("Canvas unavailable"); },
       ),
     ).rejects.toThrow("Canvas unavailable");
-    expect(revoke).toHaveBeenCalledExactlyOnceWith("blob:photo-picker-image");
+    expect(revoke).toHaveBeenCalledTimes(1);
+    expect(revoke).toHaveBeenCalledWith("blob:photo-picker-image");
   });
 });
