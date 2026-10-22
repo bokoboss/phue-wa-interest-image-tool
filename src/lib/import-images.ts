@@ -38,3 +38,23 @@ export function normalizeImportFile(file: File): File {
     lastModified: file.lastModified,
   });
 }
+
+/**
+ * A photo provider may hand the browser a short-lived File backed by an
+ * Android content URI. Eagerly copy its bytes while the picker grant is valid,
+ * so preview, thumbnails and later exports all reuse an independent Blob.
+ * A File created from another File is not guaranteed to force the underlying
+ * provider to read the bytes immediately.
+ */
+export async function materializeImportFile(pickerFile: File): Promise<File> {
+  const normalizedType = detectedMime(pickerFile);
+  if (!normalizedType) throw new Error("Only JPG, PNG and WebP images are supported.");
+
+  const bytes = await pickerFile.arrayBuffer();
+  if (bytes.byteLength === 0) throw new Error("The selected photo is empty.");
+
+  return new File([bytes], pickerFile.name, {
+    type: normalizedType,
+    lastModified: pickerFile.lastModified,
+  });
+}
