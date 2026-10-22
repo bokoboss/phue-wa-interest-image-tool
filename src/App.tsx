@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { downloadBlob, makeOutputFilename } from "./lib/files";
+import { classifyImportFiles, normalizeImportFile } from "./lib/import-images";
 import { drawPreview, loadImageFromFile, loadImageFromUrl, renderComposedBlob } from "./lib/image";
 import { stripPostCopy } from "./lib/persistence";
 import {
@@ -35,6 +36,13 @@ type ImageItem = {
   previewUrl: string;
   width: number;
   height: number;
+};
+
+type ReadyExport = {
+  url: string;
+  filename: string;
+  file: File;
+  kind: "image" | "zip";
 };
 
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -95,8 +103,9 @@ export default function App() {
   const [logoLabel, setLogoLabel] = useState("กำลังตรวจหา logo.png…");
   const [isDragging, setIsDragging] = useState(false);
   const [exportStatus, setExportStatus] = useState("");
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [importStatus, setImportStatus] = useState("");
+  const [readyExport, setReadyExport] = useState<ReadyExport | null>(null);
+  const readyExportRef = useRef<ReadyExport | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const selected = useMemo(
@@ -107,6 +116,50 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stripPostCopy(settings)));
   }, [settings]);
+
+  useEffect(() => {
+    return () => {
+      if (readyExportRef.current) URL.revokeObjectURL(readyExportRef.current.url);
+    };
+  }, []);
+
+  function clearReadyExport() {
+    if (readyExportRef.current) URL.revokeObjectURL(readyExportRef.current.url);
+    readyExportRef.current = null;
+    setReadyExport(null);
+  }
+
+  function prepareReadyExport(blob: Blob, filename: string, kind: ReadyExport["kind"]) {
+    clearReadyExport();
+    const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+    const output = { url: URL.createObjectURL(blob), filename, file, kind };
+    readyExportRef.current = output;
+    setReadyExport(output);
+    // Desktop retains one-click export; tablets get an explicit, reusable save/share control.
+    if (!window.matchMedia?.("(pointer: coarse)")?.matches) {
+      downloadBlob(blob, filename);
+    }
+  }
+
+  useEffect(() => {
+    // A prepared download must always correspond to the current design and source image.
+    if (readyExportRef.current) {
+      URL.revokeObjectURL(readyExportRef.current.url);
+      readyExportRef.current = null;
+      setReadyExport(null);
+    }
+  }, [settings, selectedId, images]);
+
+  async function shareReadyFile() {
+    const output = readyExportRef.current;
+    if (!output || !navigator.share) return;
+    try {
+      await navigator.share({ files: [output.file], title: output.filename });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setExportStatus("แชร์ไฟล์ไม่ได้ ลองใช้ปุ่มบันทึกไฟล์แทน");
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -149,11 +202,15 @@ export default function App() {
   }, [selected, logoImage, settings]);
 
   async function addFiles(fileList: FileList | File[]) {
-    const accepted = Array.from(fileList).filter((file) => ACCEPTED_TYPES.has(file.type));
-    if (!accepted.length) return;
+    const { accepted, rejected } = classifyImportFiles(fileList);
+    if (!accepted.length) {
+      setImportStatus("ไม่พบรูป JPG / PNG / WebP ที่เปิดได้ หากเป็น HEIC ให้แปลงเป็น JPG ก่อนค่ะ");
+      return;
+    }
 
-    const items = await Promise.all(
-      accepted.map(async (file) => {
+    const results = await Promise.allSettled(
+      accepted.map(async (pickerFile) => {
+        const file = normalizeImportFile(pickerFile);
         const image = await loadImageFromFile(file);
         return {
           id: crypto.randomUUID(),
@@ -161,12 +218,24 @@ export default function App() {
           previewUrl: URL.createObjectURL(file),
           width: image.naturalWidth,
           height: image.naturalHeight,
-        };
+        } satisfies ImageItem;
       }),
     );
 
-    setImages((current) => [...current, ...items]);
-    setSelectedId((current) => current ?? items[0]?.id ?? null);
+    const items = results.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
+    );
+    const failedCount = results.filter((result) => result.status === "rejected").length;
+    if (items.length) {
+      setImages((current) => [...current, ...items]);
+      setSelectedId((current) => current ?? items[0].id);
+    }
+
+    setImportStatus(
+      rejected.length || failedCount
+        ? `นำเข้าได้ ${items.length} รูป · อีก ${rejected.length + failedCount} รูปเปิดไม่ได้ (รองรับ JPG / PNG / WebP)`
+        : "",
+    );
   }
 
   function removeImage(id: string) {
@@ -293,11 +362,16 @@ export default function App() {
   }
 
   async function exportOne(item: ImageItem) {
+    clearReadyExport();
     setExportStatus("กำลังเตรียมไฟล์…");
     try {
       const result = await renderComposedBlob(item.file, logoImage, settings);
-      downloadBlob(result.blob, makeOutputFilename(item.file.name, result.mime));
-      setExportStatus(`Export แล้ว · ${result.width} × ${result.height} px`);
+      prepareReadyExport(
+        result.blob,
+        makeOutputFilename(item.file.name, result.mime),
+        "image",
+      );
+      setExportStatus(`ไฟล์พร้อมแล้ว · ${result.width} × ${result.height} px`);
     } catch (error) {
       setExportStatus(error instanceof Error ? error.message : "Export ไม่สำเร็จ");
     }
@@ -305,6 +379,7 @@ export default function App() {
 
   async function exportAll() {
     if (!images.length) return;
+    clearReadyExport();
     const zip = new JSZip();
 
     try {
@@ -317,10 +392,10 @@ export default function App() {
 
       setExportStatus("กำลังสร้าง ZIP…");
       const blob = await zip.generateAsync({ type: "blob" });
-      downloadBlob(blob, settings.outputMode === "square-card"
+      prepareReadyExport(blob, settings.outputMode === "square-card"
         ? "phue-wa-interest-square-cards.zip"
-        : "phue-wa-interest-post-images.zip");
-      setExportStatus(`พร้อมใช้ · ${images.length} รูป`);
+        : "phue-wa-interest-post-images.zip", "zip");
+      setExportStatus(`ไฟล์ ZIP พร้อมแล้ว · ${images.length} รูป`);
     } catch (error) {
       setExportStatus(error instanceof Error ? error.message : "Export ไม่สำเร็จ");
     }
@@ -330,6 +405,8 @@ export default function App() {
     images.forEach((item) => URL.revokeObjectURL(item.previewUrl));
     setImages([]);
     setSelectedId(null);
+    setImportStatus("");
+    clearReadyExport();
     setExportStatus("");
   }
 
@@ -351,9 +428,9 @@ export default function App() {
       <main className="workspace">
         <section className="editor-panel">
           {images.length === 0 ? (
-            <button
+            <label
+              htmlFor="source-image-input"
               className={`drop-zone ${isDragging ? "is-dragging" : ""}`}
-              onClick={() => imageInputRef.current?.click()}
               onDragEnter={(event) => {
                 event.preventDefault();
                 setIsDragging(true);
@@ -368,8 +445,8 @@ export default function App() {
             >
               <span className="drop-icon">＋</span>
               <strong>ลากรูปมาวาง หรือกด Ctrl+V</strong>
-              <span>คลิกเลือกหลายรูปได้ · JPG / PNG / WebP</span>
-            </button>
+              <span>แตะเพื่อเลือกรูปจากแท็บเล็ต หรือเลือกหลายรูปได้ · JPG / PNG / WebP</span>
+            </label>
           ) : (
             <>
               <div
@@ -396,7 +473,7 @@ export default function App() {
                   {isSquare && <span className="output-chip">{settings.squareCard.outputSize} × {settings.squareCard.outputSize}</span>}
                 </div>
                 <div className="mini-actions">
-                  <button onClick={() => imageInputRef.current?.click()}>＋ เพิ่มรูป</button>
+                  <label htmlFor="source-image-input" className="add-image-label">＋ เพิ่มรูป</label>
                   <button onClick={clearAll}>ล้างทั้งหมด</button>
                 </div>
               </div>
@@ -425,16 +502,19 @@ export default function App() {
           )}
 
           <input
-            ref={imageInputRef}
-            className="hidden-input"
+            id="source-image-input"
+            className="visually-hidden-input"
             type="file"
             accept="image/jpeg,image/png,image/webp"
             multiple
             onChange={(event) => {
-              if (event.target.files) void addFiles(event.target.files);
-              event.target.value = "";
+              if (event.currentTarget.files?.length) {
+                void addFiles(Array.from(event.currentTarget.files));
+              }
+              event.currentTarget.value = "";
             }}
           />
+          {importStatus && <p className="import-status" role="alert">{importStatus}</p>}
         </section>
 
         <aside className="controls-panel">
@@ -834,12 +914,12 @@ export default function App() {
               />
             </div>
 
-            <button className="secondary-button full" onClick={() => logoInputRef.current?.click()}>
+            <label className="secondary-button full logo-picker-label" htmlFor="logo-image-input">
               เลือกโลโก้อื่น
-            </button>
+            </label>
             <input
-              ref={logoInputRef}
-              className="hidden-input"
+              id="logo-image-input"
+              className="visually-hidden-input"
               type="file"
               accept="image/png,image/jpeg,image/webp"
               onChange={(event) => {
@@ -875,7 +955,22 @@ export default function App() {
             >
               Export ทั้งหมดเป็น ZIP
             </button>
-            {exportStatus && <p className="export-status">{exportStatus}</p>}
+            {exportStatus && <p className="export-status" role="status">{exportStatus}</p>}
+            {readyExport && (
+              <div className="export-ready">
+                <a href={readyExport.url} download={readyExport.filename} className="save-file-link">
+                  ↓ แตะเพื่อบันทึก{readyExport.kind === "image" ? "รูป" : " ZIP"}
+                </a>
+                {typeof navigator.canShare === "function" &&
+                  typeof navigator.share === "function" &&
+                  navigator.canShare({ files: [readyExport.file] }) && (
+                    <button type="button" className="share-file-button" onClick={() => void shareReadyFile()}>
+                      แชร์ / บันทึกผ่านอุปกรณ์
+                    </button>
+                  )}
+                <p className="save-help">หากเบราว์เซอร์ไม่ดาวน์โหลดอัตโนมัติ ให้แตะปุ่มบันทึกด้านบน (บน iPad สามารถใช้เมนูแชร์เพื่อบันทึกไปยัง Files หรือรูปภาพได้)</p>
+              </div>
+            )}
           </section>
         </aside>
       </main>

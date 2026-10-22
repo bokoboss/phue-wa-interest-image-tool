@@ -2,6 +2,18 @@
 
 Mini web app สำหรับเตรียมภาพก่อนโพสต์ Facebook ของเพจ “เผื่อว่าน่าสนใจ” โดยประมวลผลทั้งหมดใน browser ของผู้ใช้
 
+## v0.4.1 — Tablet image creation and export compatibility
+
+- เปิดตัวเลือกภาพผ่าน native `label` + file input ที่ยังเข้าถึงได้ ไม่พึ่ง `.click()` บน input ที่ `display:none`
+- รองรับไฟล์ภาพ JPG/PNG/WebP จากตัวเลือกไฟล์บนมือถือ/แท็บเล็ตที่ส่ง MIME type ว่างหรือเป็น `application/octet-stream` แต่มีนามสกุลไฟล์ที่รู้จัก
+- แสดงข้อผิดพลาดเมื่อไฟล์ไม่รองรับหรือ decode ไม่ได้ แทนการข้ามแบบเงียบ
+- Import หลายภาพแบบแยกผลสำเร็จ/ล้มเหลว เพื่อไม่ให้รูปเสียไฟล์เดียวขัดขวางรูปอื่น
+- ปุ่ม Export จะเตรียมไฟล์แล้วแสดง **บันทึกไฟล์** ที่แตะได้เองเสมอ เป็น fallback สำหรับ browser ที่บล็อก auto-download
+- สำหรับอุปกรณ์ที่รองรับ Web Share API จะแสดง **แชร์ / บันทึกผ่านอุปกรณ์** เพื่อเรียก native share sheet
+- Desktop ยังคง automatic download เดิม พร้อมลิงก์ fallback
+
+ข้อจำกัด: Safari/Chrome และ Files/Gallery ของแท็บเล็ตแต่ละรุ่นมีพฤติกรรมต่างกัน จึงควรทดสอบบนอุปกรณ์จริงก่อนยืนยันว่าแก้ครอบคลุมทุกเครื่อง
+
 ## v0.4 — Square Card polish
 
 - เพิ่ม slider **ขนาดข้อความรอง** 1.8–5.0% สำหรับทั้ง Full Image และ Square Card
