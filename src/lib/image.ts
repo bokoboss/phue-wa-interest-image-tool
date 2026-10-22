@@ -22,7 +22,25 @@ import {
 export async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
   try {
-    return await loadImageFromUrl(url);
+    const image = await loadImageFromUrl(url);
+    // Ensure decoding has completed before releasing a temporary source URL.
+    if (typeof image.decode === "function") await image.decode();
+    return image;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Keep the source URL alive until all asynchronous canvas rendering has finished. */
+export async function withLoadedImageFromFile<T>(
+  file: File,
+  render: (image: HTMLImageElement) => Promise<T>,
+): Promise<T> {
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await loadImageFromUrl(url);
+    if (typeof image.decode === "function") await image.decode();
+    return await render(image);
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -81,8 +99,8 @@ export async function renderComposedBlob(
   logo: HTMLImageElement | null,
   settings: ComposerSettings,
 ): Promise<{ blob: Blob; mime: string; width: number; height: number }> {
-  const source = await loadImageFromFile(file);
-  await ensureComposerFont(settings.text.fontPreset);
+  return withLoadedImageFromFile(file, async (source) => {
+    await ensureComposerFont(settings.text.fontPreset);
 
   if (settings.outputMode === "square-card") {
     const size = settings.squareCard.outputSize;
@@ -117,6 +135,7 @@ export async function renderComposedBlob(
   const blob = await canvasToBlob(canvas, mime, quality);
 
   return { blob, mime, width, height };
+  });
 }
 
 function drawFullComposition(

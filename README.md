@@ -2,6 +2,15 @@
 
 Mini web app สำหรับเตรียมภาพก่อนโพสต์ Facebook ของเพจ “เผื่อว่าน่าสนใจ” โดยประมวลผลทั้งหมดใน browser ของผู้ใช้
 
+## v0.4.2 — Android Chrome photo preview fix
+
+- แก้ปัญหาบางเครื่องเลือกรูปสำเร็จและแสดงขนาดไฟล์ได้ แต่ thumbnail เป็นภาพเสียและ Preview ว่าง
+- เมื่อเลือกรูป แอพจะอ่านข้อมูลภาพทั้งหมดเข้าเป็น File ใหม่ที่มีข้อมูลจริงอยู่ใน browser ทันที ไม่อ้างอิงไฟล์ชั่วคราวของ Android Photo Picker ต่อ
+- Preview และ thumbnail ใช้ Blob URL เดียวกันตลอดอายุรูปในแอพ แทนการเปิดข้อมูลจากไฟล์อีกครั้ง
+- Export จะรักษา Blob URL ต้นทางจนวาดภาพและสร้างไฟล์เสร็จ ก่อนทำความสะอาด
+- แสดงข้อผิดพลาดบนหน้าจอโดยตรงเมื่อ Preview โหลดไม่สำเร็จ แทนการแสดง Canvas ว่างแบบไม่มีคำอธิบาย
+- เพิ่ม unit tests สำหรับไฟล์จาก Photo Picker ที่หมดสิทธิ์อ่านหลังการเลือก และ lifecycle ของภาพระหว่าง asynchronous export
+
 ## v0.4.1 — Tablet image creation and export compatibility
 
 - เปิดตัวเลือกภาพผ่าน native `label` + file input ที่ยังเข้าถึงได้ ไม่พึ่ง `.click()` บน input ที่ `display:none`

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { downloadBlob, makeOutputFilename } from "./lib/files";
-import { classifyImportFiles, normalizeImportFile } from "./lib/import-images";
+import { classifyImportFiles, materializeImportFile } from "./lib/import-images";
 import { drawPreview, loadImageFromFile, loadImageFromUrl, renderComposedBlob } from "./lib/image";
 import { stripPostCopy } from "./lib/persistence";
 import {
@@ -45,7 +45,6 @@ type ReadyExport = {
   kind: "image" | "zip";
 };
 
-const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const STORAGE_KEY = "phue-wa-image-tool-settings-v3";
 const V2_STORAGE_KEY = "phue-wa-image-tool-settings-v2";
 const LEGACY_STORAGE_KEY = "phue-wa-image-tool-settings-v1";
@@ -104,6 +103,7 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [exportStatus, setExportStatus] = useState("");
   const [importStatus, setImportStatus] = useState("");
+  const [previewError, setPreviewError] = useState("");
   const [readyExport, setReadyExport] = useState<ReadyExport | null>(null);
   const readyExportRef = useRef<ReadyExport | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -181,18 +181,26 @@ export default function App() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    setPreviewError("");
     if (!canvas || !selected) return;
 
     let cancelled = false;
-    loadImageFromFile(selected.file)
+    // Use the persistent, validated preview URL. Loading a separate temporary
+    // object URL after import can fail on Android photo-picker backed files.
+    loadImageFromUrl(selected.previewUrl)
       .then((image) => {
         if (cancelled) return undefined;
         return drawPreview(canvas, image, logoImage, settings);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
           const context = canvas.getContext("2d");
           context?.clearRect(0, 0, canvas.width, canvas.height);
+          setPreviewError(
+            error instanceof Error
+              ? `แสดงภาพไม่ได้: ${error.message}`
+              : "แสดงภาพไม่ได้ ลองเลือกรูปใหม่จาก Gallery หรือ Files",
+          );
         }
       });
 
@@ -210,15 +218,22 @@ export default function App() {
 
     const results = await Promise.allSettled(
       accepted.map(async (pickerFile) => {
-        const file = normalizeImportFile(pickerFile);
-        const image = await loadImageFromFile(file);
-        return {
-          id: crypto.randomUUID(),
-          file,
-          previewUrl: URL.createObjectURL(file),
-          width: image.naturalWidth,
-          height: image.naturalHeight,
-        } satisfies ImageItem;
+        const file = await materializeImportFile(pickerFile);
+        const previewUrl = URL.createObjectURL(file);
+        try {
+          const image = await loadImageFromUrl(previewUrl);
+          if (typeof image.decode === "function") await image.decode();
+          return {
+            id: crypto.randomUUID(),
+            file,
+            previewUrl,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          } satisfies ImageItem;
+        } catch (error) {
+          URL.revokeObjectURL(previewUrl);
+          throw error;
+        }
       }),
     );
 
@@ -351,9 +366,10 @@ export default function App() {
   }
 
   async function chooseLogo(file?: File) {
-    if (!file || !ACCEPTED_TYPES.has(file.type)) return;
+    if (!file) return;
     try {
-      const image = await loadImageFromFile(file);
+      const stableFile = await materializeImportFile(file);
+      const image = await loadImageFromFile(stableFile);
       setLogoImage(image);
       setLogoLabel(file.name);
     } catch {
@@ -406,6 +422,7 @@ export default function App() {
     setImages([]);
     setSelectedId(null);
     setImportStatus("");
+    setPreviewError("");
     clearReadyExport();
     setExportStatus("");
   }
@@ -465,6 +482,11 @@ export default function App() {
               >
                 <canvas ref={canvasRef} aria-label="Preview ภาพโพสต์พร้อมข้อความและโลโก้" />
               </div>
+              {previewError && (
+                <p role="alert" className="import-status">
+                  {previewError} · ลองล้างรูปนี้แล้วเลือกไฟล์ JPG/PNG ใหม่ หากยังไม่สำเร็จให้ลองเปิดผ่าน Files แทน Gallery
+                </p>
+              )}
 
               <div className="image-strip-header">
                 <div>
@@ -485,7 +507,15 @@ export default function App() {
                     key={item.id}
                   >
                     <button className="thumb-main" onClick={() => setSelectedId(item.id)}>
-                      <img src={item.previewUrl} alt="" />
+                      <img
+                        src={item.previewUrl}
+                        alt=""
+                        onError={() => {
+                          if (selected?.id === item.id) {
+                            setPreviewError("ไม่สามารถโหลดภาพตัวอย่างได้จากไฟล์ที่เลือก");
+                          }
+                        }}
+                      />
                       <span>{String(index + 1).padStart(2, "0")}</span>
                     </button>
                     <button
